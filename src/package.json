@@ -1,7 +1,7 @@
 {
   "name": "droidypaste",
   "main": "expo-router/entry",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
