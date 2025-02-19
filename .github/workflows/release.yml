@@ -1,0 +1,54 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed for creating releases
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'src/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: src
+        run: |
+          npm install -g expo-cli
+          npm install
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Build Android APK
+        working-directory: src
+        run: |
+          npx expo prebuild --platform android --clean
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: src/android/app/build/outputs/apk/release/app-release.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
