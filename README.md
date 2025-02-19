@@ -1,6 +1,6 @@
 # DroidyPaste
 
-![alt text](/src/assets/images/icon.png)
+![splash](/src/assets/images/splash.png)
 
 A modern Android application for text sharing, file sharing and URL shortening service based on [rustypaste](https://github.com/orhun/rustypaste). Built with React Native and Expo.
 
