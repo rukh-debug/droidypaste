@@ -2,14 +2,14 @@ name: Release Build
 
 on:
   push:
-    branches:
-      - main # Trigger on push to main branch
+    tags:
+      - 'v*'
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
-      contents: write # Needed for creating releases
+      contents: write
     
     steps:
       - name: Checkout code
@@ -25,7 +25,6 @@ jobs:
       - name: Install dependencies
         working-directory: src
         run: |
-          npm install -g expo-cli
           npm install
 
       - name: Setup Java
@@ -33,7 +32,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Build Android APK
         working-directory: src
