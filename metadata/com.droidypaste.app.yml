@@ -1,0 +1,52 @@
+Categories:
+  - Internet
+License: MIT
+AuthorName: rukh-debug
+AuthorEmail: fdroid@rubenk.dev
+AuthorWebSite: https://rubenk.dev
+WebSite: https://github.com/rukh-debug/droidypaste
+SourceCode: https://github.com/rukh-debug/droidypaste
+IssueTracker: https://github.com/rukh-debug/droidypaste/issues
+Changelog: https://github.com/rukh-debug/droidypaste/releases
+
+AutoName: DroidyPaste
+Name: DroidyPaste
+
+RepoType: git
+Repo: https://github.com/rukh-debug/droidypaste
+
+Builds:
+  - versionName: '0.1.6'
+    versionCode: 1
+    commit: v0.1.6
+    subdir: src
+    sudo:
+      - apt-get update || apt-get update
+      - apt-get install -y nodejs npm
+    init:
+      - npm install -g expo-cli
+      - npm install
+    gradle:
+      - yes
+    rm:
+      - android/app/build/outputs/apk/release/*
+    build:
+      - npx expo prebuild --platform android --clean
+      - cd android
+      - ./gradlew assembleRelease
+    output: android/app/build/outputs/apk/release/app-release.apk
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: '0.1.6'
+CurrentVersionCode: 1
+
+Summary: Modern Android app for text sharing, file sharing and URL shortening
+Description: |
+  DroidyPaste is a modern Android application for text sharing and file sharing.
+  It provides URL shortening functionality and is based on rustypaste server.
+
+MaintainerNotes: |
+  * App is built using React Native with Expo
+  * Builds are done using the bare workflow after prebuild
+  * Version tracking is done via git tags
