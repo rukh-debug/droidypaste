@@ -89,6 +89,13 @@ eas build --platform ios
 4. Push to the branch
 5. Create a Pull Request
 
+# TODO
+
+- [] Share intent integration (files, text can be shared through other app)
+- [] Page dedicated for Listing all endpoints & deleting endpoints
+- [] Usable without authtoken
+- [] Release on fdroid store
+
 ## License
 
 MIT License - see LICENSE file for details
