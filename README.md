@@ -4,6 +4,13 @@
 
 A modern Android application for text sharing, file sharing and URL shortening service based on [rustypaste](https://github.com/orhun/rustypaste). Built with React Native and Expo.
 
+
+### Demo
+
+| Home Page | Settings Page |
+|:---------:|:------------:|
+| ![Home page](assets/gWN7s.png) | ![Setting page](assets/VMixI.png) |
+
 ## Features
 
 - Server URL and auth token configuration
