@@ -316,6 +316,170 @@ export async function shortenUrl(
   }
 }
 
+export async function listUploads(
+  serverUrl: string,
+  authToken: string
+) {
+  if (!serverUrl || !authToken) {
+    throw new ApiError('Server URL and auth token must be configured');
+  }
+
+  try {
+    // Ensure URL is properly formatted
+    const url = serverUrl.replace(/^http:\/\//, 'https://');
+    const finalUrl = `${url.startsWith('https://') ? url : `https://${url}`}/list`;
+    
+    console.log('Making list request to:', finalUrl);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    return new Promise<{file_name: string, file_size: number, expires_at_utc: string | null}[]>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.timeout = 10000; // 10 second timeout
+      
+      xhr.onload = function() {
+        clearTimeout(timeoutId);
+        const responseText = xhr.responseText;
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(responseText);
+            resolve(data);
+          } catch (e) {
+            reject(new ApiError('Invalid JSON response from server'));
+          }
+        } else {
+          console.error('Server response:', xhr.status, responseText);
+          reject(new ApiError(
+            `List request failed: ${responseText || xhr.statusText}`,
+            xhr.status
+          ));
+        }
+      };
+      
+      xhr.onerror = function() {
+        clearTimeout(timeoutId);
+        console.error('XHR error:', xhr.statusText);
+        reject(new ApiError('Unable to connect to server. Please check your internet connection.'));
+      };
+      
+      xhr.ontimeout = function() {
+        clearTimeout(timeoutId);
+        reject(new ApiError('Request timed out after 10 seconds'));
+      };
+      
+      xhr.open('GET', finalUrl, true);
+      
+      // Set headers
+      xhr.setRequestHeader('Authorization', authToken);
+      xhr.setRequestHeader('Accept', '*/*');
+      
+      xhr.send();
+    });
+  } catch (error) {
+    console.error('Failed to list uploads:', error);
+    
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    // Handle fetch errors
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new ApiError('Request timed out after 10 seconds');
+      } else if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new ApiError('Unable to connect to server. Please check your internet connection.');
+      }
+      // Pass through the original error message for better debugging
+      throw new ApiError(error.message);
+    }
+    
+    // Handle unknown error types
+    throw new ApiError('Unknown network error');
+  }
+}
+
+export async function deleteFile(
+  fileName: string,
+  serverUrl: string,
+  authToken: string
+) {
+  if (!serverUrl || !authToken) {
+    throw new ApiError('Server URL and auth token must be configured');
+  }
+
+  try {
+    // Ensure URL is properly formatted
+    const url = serverUrl.replace(/^http:\/\//, 'https://');
+    const finalUrl = `${url.startsWith('https://') ? url : `https://${url}`}/${fileName}`;
+    
+    console.log('Making delete request to:', finalUrl);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    return new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.timeout = 10000; // 10 second timeout
+      
+      xhr.onload = function() {
+        clearTimeout(timeoutId);
+        const responseText = xhr.responseText;
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          console.error('Server response:', xhr.status, responseText);
+          reject(new ApiError(
+            `Delete failed: ${responseText || xhr.statusText}`,
+            xhr.status
+          ));
+        }
+      };
+      
+      xhr.onerror = function() {
+        clearTimeout(timeoutId);
+        console.error('XHR error:', xhr.statusText);
+        reject(new ApiError('Unable to connect to server. Please check your internet connection.'));
+      };
+      
+      xhr.ontimeout = function() {
+        clearTimeout(timeoutId);
+        reject(new ApiError('Request timed out after 10 seconds'));
+      };
+      
+      xhr.open('DELETE', finalUrl, true);
+      
+      // Set headers
+      xhr.setRequestHeader('Authorization', authToken);
+      xhr.setRequestHeader('Accept', '*/*');
+      
+      xhr.send();
+    });
+  } catch (error) {
+    console.error('Failed to delete file:', error);
+    
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    // Handle fetch errors
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new ApiError('Request timed out after 10 seconds');
+      } else if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new ApiError('Unable to connect to server. Please check your internet connection.');
+      }
+      // Pass through the original error message for better debugging
+      throw new ApiError(error.message);
+    }
+    
+    // Handle unknown error types
+    throw new ApiError('Unknown network error');
+  }
+}
+
 export async function uploadFromRemoteUrl(
   remoteUrl: string,
   serverUrl: string,
