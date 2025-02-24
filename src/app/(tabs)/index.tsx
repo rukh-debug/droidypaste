@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View } from 'react-native';
+import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View, Linking } from 'react-native';
 import Constants from 'expo-constants';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 
@@ -227,15 +228,23 @@ export default function ListScreen() {
         ) : (
           sortUploads(uploads, sortField, sortDirection).map((upload) => (
             <ThemedView key={upload.file_name} style={styles.uploadItem}>
-              <ThemedView style={styles.uploadDetails}>
-                <ThemedText style={styles.fileName}>{upload.file_name}</ThemedText>
+              <Pressable 
+                onPress={() => {
+                  const url = `${settings.serverUrl}/${upload.file_name}`;
+                  Linking.openURL(url);
+                }}
+                style={styles.uploadDetails}>
+                <View style={styles.fileNameRow}>
+                  <ThemedText style={styles.fileName}>{upload.file_name}</ThemedText>
+                  <MaterialIcons name="open-in-new" size={16} color="#666666" />
+                </View>
                 <ThemedText style={styles.fileInfo}>
                   Size: {formatFileSize(upload.file_size)}
                 </ThemedText>
                 <ThemedText style={styles.fileInfo}>
                   Expires: {formatDate(upload.expires_at_utc)}
                 </ThemedText>
-              </ThemedView>
+              </Pressable>
               <ThemedView style={styles.buttonRow}>
                 <Pressable
                   style={({ pressed }) => [
@@ -278,6 +287,12 @@ export default function ListScreen() {
 }
 
 const styles = StyleSheet.create({
+  fileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   sortControls: {
     marginBottom: 20,
   },
