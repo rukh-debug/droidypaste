@@ -7,9 +7,9 @@ A modern Android application for text sharing, file sharing and URL shortening s
 
 ### Demo
 
-| Home Page | Settings Page |
-|:---------:|:------------:|
-| ![Home page](assets/gWN7s.png) | ![Setting page](assets/VMixI.png) |
+| Upload | List Uploads | Settings |
+|:---------:|:------------:|:------------:|
+| ![Upload page](assets/0.png) | ![Uploads page](assets/1.png)  | ![Setting page](assets/2.png) |
 
 ## Features
 
@@ -100,8 +100,8 @@ eas build --platform ios
 # TODO
 
 - [ ] Share intent integration (files, text can be shared through other app)
-- [ ] Page dedicated for Listing all endpoints & deleting endpoints
-- [ ] Usable without authtoken
+- [x] Page dedicated for Listing all endpoints & deleting endpoints
+- [x] Usable without authtoken
 - [ ] Release on fdroid store
 
 ## License
