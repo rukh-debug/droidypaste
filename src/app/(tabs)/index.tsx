@@ -1,274 +1,344 @@
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, TextInput, Alert, ScrollView, Pressable } from 'react-native';
-import * as IntentLauncher from 'expo-intent-launcher';
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View } from 'react-native';
 import Constants from 'expo-constants';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useSettings } from '@/hooks/useSettings';
-import { uploadText, shortenUrl, uploadFromRemoteUrl } from '@/services/api';
-import { pickAndUploadFile, pickAndUploadImage, ShareOptions } from '@/services/sharing';
-import { notifyUploadError, notifyUploadSuccess, requestNotificationsPermission } from '@/services/notifications';
+import { listUploads, deleteFile } from '@/services/api';
 
-type UploadType = 'text' | 'file' | 'image' | 'url' | 'remote';
+interface Upload {
+  file_name: string;
+  file_size: number;
+  expires_at_utc: string | null;
+}
 
-export default function UploadScreen() {
-  const [text, setText] = useState('');
-  const [url, setUrl] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const { settings } = useSettings();
+type SortField = 'name' | 'size' | 'expiration';
+type SortDirection = 'asc' | 'desc';
 
-  const inputBackground = useThemeColor({ light: '#f0f0f0', dark: '#dadada' }, 'background');
+const sortUploads = (uploads: Upload[], field: SortField, direction: SortDirection): Upload[] => {
+  const sortedUploads = [...uploads];
 
-  const handleUpload = useCallback(async (type: UploadType, oneshot = false) => {
-    if (isUploading) return;
-    setIsUploading(true);
+  sortedUploads.sort((a, b) => {
+    let comparison = 0;
 
+    switch (field) {
+      case 'name':
+        comparison = a.file_name.localeCompare(b.file_name);
+        break;
+      case 'size':
+        comparison = a.file_size - b.file_size;
+        break;
+      case 'expiration':
+        // Handle null dates by placing them at the end
+        if (a.expires_at_utc === null && b.expires_at_utc === null) {
+          comparison = 0;
+        } else if (a.expires_at_utc === null) {
+          comparison = 1;
+        } else if (b.expires_at_utc === null) {
+          comparison = -1;
+        } else {
+          comparison = new Date(a.expires_at_utc).getTime() - new Date(b.expires_at_utc).getTime();
+        }
+        break;
+    }
+
+    return direction === 'asc' ? comparison : -comparison;
+  });
+
+  return sortedUploads;
+};
+
+export default function ListScreen() {
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const { settings, isLoading: settingsLoading } = useSettings();
+
+  const loadUploads = useCallback(async () => {
     try {
-      await requestNotificationsPermission();
-      const options: ShareOptions = {};
-
-      if (expiry.trim()) {
-        options.expiry = expiry.trim();
-      }
-
-      if (oneshot) {
-        options.oneshot = true;
-      }
-
-      let resultUrl: string | undefined;
-
-      switch (type) {
-        case 'text':
-          if (!text.trim()) {
-            Alert.alert('Error', 'Please enter some text');
-            return;
-          }
-          resultUrl = await uploadText(text.trim(), settings.serverUrl, settings.authToken, options);
-          setText('');
-          break;
-
-        case 'file':
-          resultUrl = await pickAndUploadFile(settings.serverUrl, settings.authToken, options);
-          break;
-
-        case 'image':
-          resultUrl = await pickAndUploadImage(settings.serverUrl, settings.authToken, options);
-          break;
-
-        case 'url':
-          if (!url.trim()) {
-            Alert.alert('Error', 'Please enter a URL');
-            return;
-          }
-          resultUrl = await shortenUrl(url.trim(), settings.serverUrl, settings.authToken);
-          setUrl('');
-          break;
-
-        case 'remote':
-          if (!url.trim()) {
-            Alert.alert('Error', 'Please enter a remote URL');
-            return;
-          }
-          resultUrl = await uploadFromRemoteUrl(url.trim(), settings.serverUrl, settings.authToken, options);
-          setUrl('');
-          break;
-      }
-
-      if (resultUrl) {
-        await notifyUploadSuccess(type.charAt(0).toUpperCase() + type.slice(1), resultUrl);
-      }
+      const data = await listUploads(settings.serverUrl, settings.authToken);
+      setUploads(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      await notifyUploadError(
-        type.charAt(0).toUpperCase() + type.slice(1),
-        message
-      );
+      Alert.alert('Error', `Failed to load uploads: ${message}`);
     } finally {
-      setIsUploading(false);
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [text, url, expiry, isUploading]);
+  }, [settings]);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadUploads();
+  }, [loadUploads]);
+
+  const handleDelete = useCallback(async (fileName: string) => {
+    try {
+      await deleteFile(fileName, settings.serverUrl, settings.deleteToken);
+      // Refresh the list after successful deletion
+
+      loadUploads();
+      Alert.alert('Success', 'File deleted successfully');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to delete file: ${message}`);
+    }
+  }, [settings, loadUploads]);
+
+  const handleCopy = useCallback(async (fileName: string) => {
+    try {
+      const url = `${settings.serverUrl}/${fileName}`;
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Success', 'URL copied to clipboard');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy URL');
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    console.log("This is the settings", settings);
+    if (settingsLoading) {
+      return;
+    }
+
+    if (!settings.serverUrl || settings.serverUrl === '') {
+      Alert.alert(
+        'Settings Required',
+        'Please configure server URL first',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/settings')
+          }
+        ]
+      );
+      return;
+    }
+
+    loadUploads();
+  }, [loadUploads, settings, settingsLoading]);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Never';
+    return new Date(dateStr).toLocaleString();
+  };
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Upload',
+          title: 'Uploads',
           headerLargeTitle: true,
         }}
       />
 
-
-      <ScrollView style={styles.container}
-        contentContainerStyle={{ marginTop: Constants.statusBarHeight }}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { marginTop: Constants.statusBarHeight }
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+          />
+        }
       >
+        <View style={styles.sortControls}>
+          {/* <ThemedText style={styles.sortLabel}>Sort by:</ThemedText> */}
+        </View>
         <ThemedText
-          style={
-            {
-              fontFamily: 'Takota',
-              fontSize: 32,
-              textAlign: 'center',
-              paddingTop: 20,
-              color: '#A7C83F'
-            }
-          }
+          style={{
+            fontFamily: 'Takota',
+            fontSize: 32,
+            textAlign: 'center',
+            paddingVertical: 20,
+            color: '#A7C83F'
+          }}
           type="default">
           droidypaste
-
         </ThemedText>
 
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortButtonsContainer}>
+          <Pressable
+            style={[styles.sortButton, sortField === 'name' && styles.sortButtonActive]}
+            onPress={() => {
+              if (sortField === 'name') {
+                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortField('name');
+                setSortDirection('asc');
+              }
+            }}
+          >
+            <ThemedText style={[styles.sortButtonText, sortField === 'name' && styles.sortButtonTextActive]}>
+              Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.sortButton, sortField === 'size' && styles.sortButtonActive]}
+            onPress={() => {
+              if (sortField === 'size') {
+                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortField('size');
+                setSortDirection('asc');
+              }
+            }}
+          >
+            <ThemedText style={[styles.sortButtonText, sortField === 'size' && styles.sortButtonTextActive]}>
+              Size {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.sortButton, sortField === 'expiration' && styles.sortButtonActive]}
+            onPress={() => {
+              if (sortField === 'expiration') {
+                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortField('expiration');
+                setSortDirection('asc');
+              }
+            }}
+          >
+            <ThemedText style={[styles.sortButtonText, sortField === 'expiration' && styles.sortButtonTextActive]}>
+              Expires {sortField === 'expiration' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </ThemedText>
+          </Pressable>
+        </ScrollView>
 
-
-        <ThemedView style={styles.section}>
-          <ThemedText type="title">Text Upload</ThemedText>
-          <TextInput
-            style={[styles.input, styles.textArea, { backgroundColor: inputBackground }]}
-            value={text}
-            onChangeText={setText}
-            placeholder="Enter text to upload..."
-            placeholderTextColor="#888"
-            multiline
-            numberOfLines={4}
-            editable={!isUploading}
-          />
-          <ThemedView style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('text')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Upload Text</ThemedText>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('text', true)}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>One-shot Text</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedText type="title">URL Operations</ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: inputBackground }]}
-            value={url}
-            onChangeText={setUrl}
-            placeholder="Enter URL..."
-            placeholderTextColor="#888"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            editable={!isUploading}
-          />
-          <ThemedView style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('url')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Shorten URL</ThemedText>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('remote')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Upload Remote</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedView style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <ThemedText type="title">File Upload</ThemedText>
-            <Pressable onPress={() => IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: 'https://github.com/orhun/rustypaste?tab=readme-ov-file#expiration' })}>
-              <ThemedText style={{ color: '#007AFF' }}>Expiration help</ThemedText>
-            </Pressable>
-          </ThemedView>
-
-          <TextInput
-            style={[styles.input, { backgroundColor: inputBackground }]}
-            value={expiry}
-            onChangeText={setExpiry}
-            placeholder="Expiry (optional, e.g. 1h, 1d)"
-            placeholderTextColor="#888"
-            editable={!isUploading}
-          />
-          <ThemedView style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('file')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Upload File</ThemedText>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('image')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Upload Image</ThemedText>
-            </Pressable>
-          </ThemedView>
-          <ThemedView style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('file', true)}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>One-shot File</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </ThemedView>
+        {isLoading ? (
+          <ActivityIndicator size="large" style={styles.loader} />
+        ) : uploads.length === 0 ? (
+          <ThemedText style={styles.emptyText}>No uploads found</ThemedText>
+        ) : (
+          sortUploads(uploads, sortField, sortDirection).map((upload) => (
+            <ThemedView key={upload.file_name} style={styles.uploadItem}>
+              <ThemedView style={styles.uploadDetails}>
+                <ThemedText style={styles.fileName}>{upload.file_name}</ThemedText>
+                <ThemedText style={styles.fileInfo}>
+                  Size: {formatFileSize(upload.file_size)}
+                </ThemedText>
+                <ThemedText style={styles.fileInfo}>
+                  Expires: {formatDate(upload.expires_at_utc)}
+                </ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.buttonRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.copyButton,
+                    { opacity: pressed ? 0.7 : 1 }
+                  ]}
+                  onPress={() => handleCopy(upload.file_name)}
+                >
+                  <ThemedText style={styles.buttonText}>Copy URL</ThemedText>
+                </Pressable>
+                {settings.deleteToken !== '' && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.button,
+                      styles.deleteButton,
+                      { opacity: pressed ? 0.7 : 1 }
+                    ]}
+                    onPress={() => {
+                      Alert.alert(
+                        'Confirm Delete',
+                        `Are you sure you want to delete ${upload.file_name}?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => handleDelete(upload.file_name) }
+                        ]
+                      );
+                    }}
+                  >
+                    <ThemedText style={styles.buttonText}>Delete</ThemedText>
+                  </Pressable>
+                )}
+              </ThemedView>
+            </ThemedView>
+          ))
+        )}
       </ScrollView>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  sortControls: {
+    marginBottom: 20,
+  },
+  sortLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  sortButtonsContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  sortButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },
+  sortButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  sortButtonText: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  sortButtonTextActive: {
+    color: '#FFFFFF',
+  },
   container: {
     flex: 1,
   },
-  section: {
-    padding: 20,
-    gap: 16,
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  input: {
-    height: 40,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+  loader: {
+    marginTop: 40,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 40,
     fontSize: 16,
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-    paddingTop: 8,
+  uploadItem: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  uploadDetails: {
+    marginBottom: 12,
+  },
+  fileName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  fileInfo: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 2,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -276,10 +346,15 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    backgroundColor: '#007AFF',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  copyButton: {
+    backgroundColor: '#007AFF',
+  },
+  deleteButton: {
+    backgroundColor: '#FF3B30',
   },
   buttonText: {
     color: '#FFFFFF',
