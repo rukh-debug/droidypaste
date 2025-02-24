@@ -52,7 +52,6 @@ export async function uploadText(
 
   // Log request details for debugging
   console.log('Making request to:', serverUrl);
-  console.log('Headers:', headers);
   
   try {
     // Ensure URL is properly formatted
@@ -162,16 +161,12 @@ export async function uploadFile(
 
   // Log request details for debugging
   console.log('Making file upload request to:', serverUrl);
-  console.log('Headers:', headers);
-  console.log('File data:', { name: fileData.name, type: fileData.type });
   
   try {
     // Ensure URL is properly formatted
     const url = serverUrl.replace(/^http:\/\//, 'https://');
     const finalUrl = url.startsWith('https://') ? url : `https://${url}`;
-    
-    console.log('Final URL:', finalUrl);
-    
+        
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     

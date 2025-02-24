@@ -102,7 +102,6 @@ export default function ListScreen() {
   }, [settings]);
 
   useEffect(() => {
-    console.log("This is the settings", settings);
     if (settingsLoading) {
       return;
     }
