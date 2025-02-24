@@ -21,11 +21,11 @@ export class ApiError extends Error {
 export async function uploadText(
   text: string,
   serverUrl: string,
-  authToken: string,
+  authToken?: string,
   options: UploadOptions = {}
 ) {
-  if (!serverUrl || !authToken) {
-    throw new ApiError('Server URL and auth token must be configured');
+  if (!serverUrl) {
+    throw new ApiError('Server URL must be configured');
   }
 
   const formData = new FormData();
@@ -37,11 +37,14 @@ export async function uploadText(
     string: text // This will be the actual text content
   } as any);
 
-  const headers: HeadersInit = {
-    'Authorization': authToken,
+  const headers: Record<string, string> = {
     'Accept': '*/*',
     "Accept-Encoding": "identity"
   };
+
+  if (authToken) {
+    headers['Authorization'] = authToken;
+  }
 
   if (options.expiry) {
     headers['expire'] = options.expiry;
@@ -126,11 +129,11 @@ export async function uploadText(
 export async function uploadFile(
   uri: string,
   serverUrl: string,
-  authToken: string,
+  authToken?: string,
   options: UploadOptions = {}
 ) {
-  if (!serverUrl || !authToken) {
-    throw new ApiError('Server URL and auth token must be configured');
+  if (!serverUrl) {
+    throw new ApiError('Server URL must be configured');
   }
 
   const formData = new FormData();
@@ -145,10 +148,13 @@ export async function uploadFile(
   
   formData.append(options.oneshot ? 'oneshot' : 'file', fileData as any);
 
-  const headers: HeadersInit = {
-    'Authorization': authToken,
+  const headers: Record<string, string> = {
     'Accept': '*/*'
   };
+
+  if (authToken) {
+    headers['Authorization'] = authToken;
+  }
 
   if (options.expiry) {
     headers['expire'] = options.expiry;
@@ -234,10 +240,10 @@ export async function uploadFile(
 export async function shortenUrl(
   url: string,
   serverUrl: string,
-  authToken: string
+  authToken?: string
 ) {
-  if (!serverUrl || !authToken) {
-    throw new ApiError('Server URL and auth token must be configured');
+  if (!serverUrl) {
+    throw new ApiError('Server URL must be configured');
   }
 
   const formData = new FormData();
@@ -288,8 +294,10 @@ export async function shortenUrl(
       xhr.open('POST', finalUrl, true);
       
       // Set headers
-      xhr.setRequestHeader('Authorization', authToken);
       xhr.setRequestHeader('Accept', '*/*');
+      if (authToken) {
+        xhr.setRequestHeader('Authorization', authToken);
+      }
       
       xhr.send(formData);
     });
@@ -318,10 +326,10 @@ export async function shortenUrl(
 
 export async function listUploads(
   serverUrl: string,
-  authToken: string
+  authToken?: string
 ) {
-  if (!serverUrl || !authToken) {
-    throw new ApiError('Server URL and auth token must be configured');
+  if (!serverUrl) {
+    throw new ApiError('Server URL must be configured');
   }
 
   try {
@@ -351,6 +359,9 @@ export async function listUploads(
           }
         } else {
           console.error('Server response:', xhr.status, responseText);
+          if (xhr.status === 404) {
+            reject(new ApiError('Make sure expose_list is set to true in your server config'));
+          }
           reject(new ApiError(
             `List request failed: ${responseText || xhr.statusText}`,
             xhr.status
@@ -372,8 +383,10 @@ export async function listUploads(
       xhr.open('GET', finalUrl, true);
       
       // Set headers
-      xhr.setRequestHeader('Authorization', authToken);
       xhr.setRequestHeader('Accept', '*/*');
+      if (authToken) {
+        xhr.setRequestHeader('Authorization', authToken);
+      }
       
       xhr.send();
     });
@@ -403,10 +416,10 @@ export async function listUploads(
 export async function deleteFile(
   fileName: string,
   serverUrl: string,
-  authToken: string
+  deleteToken: string
 ) {
-  if (!serverUrl || !authToken) {
-    throw new ApiError('Server URL and auth token must be configured');
+  if (!serverUrl) {
+    throw new ApiError('Server URL must be configured');
   }
 
   try {
@@ -431,6 +444,9 @@ export async function deleteFile(
           resolve();
         } else {
           console.error('Server response:', xhr.status, responseText);
+          if (xhr.status === 404) {
+            reject(new ApiError('Make sure delete_token is set in your server config'));
+          }
           reject(new ApiError(
             `Delete failed: ${responseText || xhr.statusText}`,
             xhr.status
@@ -452,8 +468,9 @@ export async function deleteFile(
       xhr.open('DELETE', finalUrl, true);
       
       // Set headers
-      xhr.setRequestHeader('Authorization', authToken);
       xhr.setRequestHeader('Accept', '*/*');
+      xhr.setRequestHeader('Authorization', deleteToken);
+      
       
       xhr.send();
     });
@@ -483,20 +500,23 @@ export async function deleteFile(
 export async function uploadFromRemoteUrl(
   remoteUrl: string,
   serverUrl: string,
-  authToken: string,
+  authToken?: string,
   options: UploadOptions = {}
 ) {
-  if (!serverUrl || !authToken) {
-    throw new ApiError('Server URL and auth token must be configured');
+  if (!serverUrl) {
+    throw new ApiError('Server URL must be configured');
   }
 
   const formData = new FormData();
   formData.append('remote', remoteUrl);
 
-  const headers: HeadersInit = {
-    'Authorization': authToken,
+  const headers: Record<string, string> = {
     'Accept': '*/*'
   };
+
+  if (authToken) {
+    headers['Authorization'] = authToken;
+  }
 
   if (options.expiry) {
     headers['expire'] = options.expiry;
