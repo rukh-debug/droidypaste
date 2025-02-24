@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
-type TabIconName = 'square.and.arrow.up' | 'gear';
+type TabIconName = 'square.and.arrow.up' | 'list.bullet' | 'gear';
 
 export default function TabLayout() {
   const tabBarBackground = useThemeColor(
@@ -24,11 +24,20 @@ export default function TabLayout() {
         headerShown: false,
       }}>
       <Tabs.Screen
-        name="index"
+        name="upload"
         options={{
           title: 'Upload',
           tabBarIcon: ({ color, size }) => (
             <TabIcon name="square.and.arrow.up" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Uploads',
+          tabBarIcon: ({ color, size }) => (
+            <TabIcon name="list.bullet" color={color} size={size} />
           ),
         }}
       />
@@ -57,7 +66,8 @@ function TabIcon({ name, color, size }: { name: TabIconName; color: string; size
   }
 
   // For Android and web, use Material Icons
-  const materialIconName = name === 'square.and.arrow.up' ? 'upload' : 'settings';
+  const materialIconName = name === 'square.and.arrow.up' ? 'upload' : 
+                         name === 'list.bullet' ? 'list' : 'settings';
   return (
     <MaterialIcons
       name={materialIconName}
