@@ -28,6 +28,7 @@ A modern Android application for text sharing, file sharing and URL shortening s
 ## Installation
 
 1. Clone the repository
+2. Change directory to src
 2. Install dependencies:
 ```bash
 npm install
@@ -35,7 +36,7 @@ npm install
 
 3. Start the development server:
 ```bash
-npm start
+npm start android
 ```
 
 4. Follow the Expo CLI instructions to run on your desired platform
