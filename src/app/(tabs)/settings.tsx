@@ -12,9 +12,10 @@ import Constants from 'expo-constants';
 
 
 export default function SettingsScreen() {
-  const { settings, setServerUrl, setAuthToken } = useSettings();
+  const { settings, setServerUrl, setAuthToken, setDeleteToken } = useSettings();
   const [tempServerUrl, setTempServerUrl] = useState(settings.serverUrl);
   const [tempAuthToken, setTempAuthToken] = useState(settings.authToken);
+  const [tempDeleteToken, setTempDeleteToken] = useState(settings.deleteToken);
   const inputBackground = useThemeColor({ light: '#f0f0f0', dark: '#dadada' }, 'background');
 
   const handleSaveSettings = useCallback(async () => {
@@ -25,8 +26,23 @@ export default function SettingsScreen() {
       }
 
       if (!tempAuthToken.trim()) {
-        Alert.alert('Error', 'Auth token cannot be empty');
-        return;
+        await new Promise((resolve) => {
+          Alert.alert(
+            'Warning',
+            'If your server requires authentication, you need to provide an auth token',
+            [{ text: 'OK', onPress: resolve }]
+          );
+        });
+      }
+
+      if (!tempDeleteToken.trim()) {
+        await new Promise((resolve) => {
+          Alert.alert(
+            'Warning',
+            'Without delete token you won\'t be able to delete pastes',
+            [{ text: 'OK', onPress: resolve }]
+          );
+        });
       }
 
       // Basic URL validation
@@ -40,6 +56,7 @@ export default function SettingsScreen() {
       await Promise.all([
         setServerUrl(tempServerUrl.trim()),
         setAuthToken(tempAuthToken.trim()),
+        setDeleteToken(tempDeleteToken.trim()),
       ]);
 
       Alert.alert('Success', 'Settings saved successfully');
@@ -47,7 +64,7 @@ export default function SettingsScreen() {
       Alert.alert('Error', 'Failed to save settings');
       console.error(error);
     }
-  }, [tempServerUrl, tempAuthToken, setServerUrl, setAuthToken]);
+  }, [tempServerUrl, tempAuthToken, tempDeleteToken, setServerUrl, setAuthToken, setDeleteToken]);
 
   return (
     <ScrollView style={styles.container}
@@ -84,8 +101,20 @@ export default function SettingsScreen() {
           autoCorrect={false}
         />
 
+        <ThemedText style={styles.label}>Delete Token</ThemedText>
+        <TextInput
+          style={[styles.input, { backgroundColor: inputBackground }]}
+          value={tempDeleteToken}
+          onChangeText={setTempDeleteToken}
+          placeholder="Your delete token"
+          placeholderTextColor="#888"
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
         <ThemedView
-          style={[styles.saveButton, { opacity: !tempServerUrl || !tempAuthToken ? 0.5 : 1 }]}
+          style={[styles.saveButton, { opacity: !tempServerUrl ? 0.5 : 1 }]}
           onTouchEnd={handleSaveSettings}
         >
           <ThemedText style={styles.saveButtonText}>Save Settings</ThemedText>
