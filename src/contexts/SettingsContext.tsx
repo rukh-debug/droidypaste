@@ -5,24 +5,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface Settings {
   serverUrl: string;
   authToken: string;
+  deleteToken: string;
 }
 
 interface SettingsContextType {
   settings: Settings;
   setServerUrl: (url: string) => Promise<void>;
   setAuthToken: (token: string) => Promise<void>;
+  setDeleteToken: (token: string) => Promise<void>;
   isLoading: boolean;
 }
 
 const defaultSettings: Settings = {
   serverUrl: '',
   authToken: '',
+  deleteToken: '',
 };
 
 export const SettingsContext = createContext<SettingsContextType>({
   settings: defaultSettings,
   setServerUrl: async () => {},
   setAuthToken: async () => {},
+  setDeleteToken: async () => {},
   isLoading: true,
 });
 
@@ -42,15 +46,17 @@ export function SettingsProvider({ children }: Readonly<PropsWithChildren>) {
     
     const loadSettings = async () => {
       try {
-        const [serverUrl, authToken] = await Promise.all([
+        const [serverUrl, authToken, deleteToken] = await Promise.all([
           AsyncStorage.getItem('serverUrl'),
           SecureStore.getItemAsync('authToken'),
+          SecureStore.getItemAsync('deleteToken'),
         ]);
 
         if (isMounted) {
           setSettings({
             serverUrl: serverUrl || '',
             authToken: authToken || '',
+            deleteToken: deleteToken || '',
           });
         }
       } catch (error) {
@@ -95,12 +101,26 @@ export function SettingsProvider({ children }: Readonly<PropsWithChildren>) {
     }
   };
 
+  const setDeleteToken = async (token: string) => {
+    try {
+      await SecureStore.setItemAsync('deleteToken', token);
+      if (mountedRef.current) {
+        setSettings(prev => ({ ...prev, deleteToken: token }));
+      }
+    }
+    catch (error) {
+      console.error('Failed to save delete token:', error);
+      throw error;
+    }
+  };
+
   return (
     <SettingsContext.Provider 
       value={{
         settings,
         setServerUrl,
         setAuthToken,
+        setDeleteToken,
         isLoading,
       }}
     >
