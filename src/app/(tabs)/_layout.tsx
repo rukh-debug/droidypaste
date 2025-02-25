@@ -66,8 +66,7 @@ function TabIcon({ name, color, size }: { name: TabIconName; color: string; size
   }
 
   // For Android and web, use Material Icons
-  const materialIconName = name === 'square.and.arrow.up' ? 'upload' : 
-                         name === 'list.bullet' ? 'list' : 'settings';
+  const materialIconName = name === 'square.and.arrow.up' ? 'upload' : name === 'list.bullet' ? 'list' : 'settings';
   return (
     <MaterialIcons
       name={materialIconName}

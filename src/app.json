@@ -63,24 +63,7 @@
               "mimeType": "video/*"
             },
             {
-              "mimeType": "application/*"
-            }
-          ]
-        },
-        {
-          "action": "android.intent.action.SEND_MULTIPLE",
-          "category": [
-            "android.intent.category.DEFAULT"
-          ],
-          "data": [
-            {
-              "mimeType": "image/*"
-            },
-            {
-              "mimeType": "video/*"
-            },
-            {
-              "mimeType": "application/*"
+              "mimeType": "*/*"
             }
           ]
         }
@@ -96,6 +79,7 @@
       "expo-image-picker",
       "expo-document-picker",
       "expo-notifications",
+      "expo-share-intent",
       [
         "expo-splash-screen",
         {

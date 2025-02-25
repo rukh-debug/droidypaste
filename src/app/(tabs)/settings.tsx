@@ -1,4 +1,4 @@
-import { StyleSheet, TextInput, ScrollView, Alert, Pressable } from 'react-native';
+import { StyleSheet, TextInput, ScrollView, Alert, Pressable, ToastAndroid } from 'react-native';
 import { useCallback, useState } from 'react';
 import * as IntentLauncher from 'expo-intent-launcher';
 
@@ -58,8 +58,9 @@ export default function SettingsScreen() {
         setAuthToken(tempAuthToken.trim()),
         setDeleteToken(tempDeleteToken.trim()),
       ]);
-
-      Alert.alert('Success', 'Settings saved successfully');
+      
+      // Alert.alert('Success', 'Settings saved successfully');
+      ToastAndroid.show('Settings saved successfully', ToastAndroid.SHORT);
     } catch (error) {
       Alert.alert('Error', 'Failed to save settings');
       console.error(error);
