@@ -11,20 +11,6 @@ A modern Android application for text sharing, file sharing and URL shortening s
 |:---------:|:------------:|:------------:|
 | ![Upload page](assets/0.png) | ![Uploads page](assets/1.png)  | ![Setting page](assets/2.png) |
 
-## Features
-
-- Server URL and auth token configuration
-- Text sharing and uploads
-- File uploads with optional expiry
-- URL shortening
-- Remote file uploads
-- One-shot file and URL functionality
-- Upload result notifications
-- Automatic clipboard copying
-- Secure credential storage
-- Material Design UI
-- Light and dark theme support
-
 ## Installation
 
 1. Clone the repository
@@ -39,13 +25,15 @@ npm install
 npm start android
 ```
 
-4. Follow the Expo CLI instructions to run on your desired platform
+4. Follow the Expo CLI instructions to run on your desired platform 
+
+`Note: droidypaste is only tested in android platform"
 
 ## Configuration
 
 1. Open the app settings
 2. Enter your RustyPaste server URL
-3. Enter your authentication token
+3. Enter your authentication token and delete token if applicable
 4. Save the settings
 
 ## Usage
@@ -68,26 +56,22 @@ npm start android
    - Shorten URL: Creates a short link
    - Upload Remote: Downloads and hosts the remote file
 
+### Share through app
+1. Share files, text or url to droidypaste
+2. Files and text are uploaded and urls are shortened
+3. The URL copied to clipboard
 
 ### Building for Production
 
 1. Configure app.json with your production settings
 2. Build for Android:
 ```bash
-eas build --platform android
+   npx expo prebuild --platform android --clean
+   cd android
+   chmod +x gradlew
+   ./gradlew assembleRelease
 ```
-
-3. Build for iOS:
-```bash
-eas build --platform ios
-```
-
-## Security
-
-- Credentials are stored securely using expo-secure-store
-- Network requests are made over HTTPS
-- File access permissions are requested only when needed
-- Sensitive data is not logged or stored in plain text
+3. Release file location: `src/android/app/build/outputs/apk/release/app-release.apk`
 
 ## Contributing
 
