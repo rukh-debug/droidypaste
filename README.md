@@ -56,7 +56,7 @@ npm start android
    - Shorten URL: Creates a short link
    - Upload Remote: Downloads and hosts the remote file
 
-### Share through app
+### Share to droidypaste
 1. Share files, text or url to droidypaste
 2. Files and text are uploaded and urls are shortened
 3. The URL copied to clipboard

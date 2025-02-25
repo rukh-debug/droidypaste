@@ -34,7 +34,7 @@ function RootLayoutNav() {
       }
 
       if (hasShareIntent && shareIntent) {
-        console.log('Processing share intent:', hasShareIntent, shareIntent, error);
+        // console.log('Processing share intent:', hasShareIntent, shareIntent, error);
 
         try {
           // Handle different types of shared content
@@ -43,7 +43,7 @@ function RootLayoutNav() {
             for (const file of shareIntent.files) {
               const { path } = file;
               // Handle as generic file
-              console.log('Uploading shared file:', path);
+              // console.log('Uploading shared file:', path);
               const url = await uploadFile(
                 path,
                 settings.serverUrl,
