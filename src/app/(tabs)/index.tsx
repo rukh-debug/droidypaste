@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View, Linking } from 'react-native';
+import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View, ToastAndroid, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
@@ -7,7 +7,6 @@ import * as Clipboard from 'expo-clipboard';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useThemeColor } from '@/hooks/useThemeColor';
 import { useSettings } from '@/hooks/useSettings';
 import { listUploads, deleteFile } from '@/services/api';
 
@@ -96,7 +95,9 @@ export default function ListScreen() {
     try {
       const url = `${settings.serverUrl}/${fileName}`;
       await Clipboard.setStringAsync(url);
-      Alert.alert('Success', 'URL copied to clipboard');
+      ToastAndroid.show('URL copied to clipboard', ToastAndroid.SHORT);
+      // Alert.alert('Success', 'URL copied to clipboard');
+
     } catch (error) {
       Alert.alert('Error', 'Failed to copy URL');
     }
@@ -173,113 +174,120 @@ export default function ListScreen() {
           droidypaste
         </ThemedText>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortButtonsContainer}>
-          <Pressable
-            style={[styles.sortButton, sortField === 'name' && styles.sortButtonActive]}
-            onPress={() => {
-              if (sortField === 'name') {
-                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-              } else {
-                setSortField('name');
-                setSortDirection('asc');
-              }
-            }}
-          >
-            <ThemedText style={[styles.sortButtonText, sortField === 'name' && styles.sortButtonTextActive]}>
-              Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            style={[styles.sortButton, sortField === 'size' && styles.sortButtonActive]}
-            onPress={() => {
-              if (sortField === 'size') {
-                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-              } else {
-                setSortField('size');
-                setSortDirection('asc');
-              }
-            }}
-          >
-            <ThemedText style={[styles.sortButtonText, sortField === 'size' && styles.sortButtonTextActive]}>
-              Size {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            style={[styles.sortButton, sortField === 'expiration' && styles.sortButtonActive]}
-            onPress={() => {
-              if (sortField === 'expiration') {
-                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-              } else {
-                setSortField('expiration');
-                setSortDirection('asc');
-              }
-            }}
-          >
-            <ThemedText style={[styles.sortButtonText, sortField === 'expiration' && styles.sortButtonTextActive]}>
-              Expires {sortField === 'expiration' && (sortDirection === 'asc' ? '↑' : '↓')}
-            </ThemedText>
-          </Pressable>
-        </ScrollView>
+
 
         {isLoading ? (
           <ActivityIndicator size="large" style={styles.loader} />
         ) : uploads.length === 0 ? (
           <ThemedText style={styles.emptyText}>No uploads found</ThemedText>
         ) : (
-          sortUploads(uploads, sortField, sortDirection).map((upload) => (
-            <ThemedView key={upload.file_name} style={styles.uploadItem}>
-              <Pressable 
+          <>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortButtonsContainer}>
+              <Pressable
+                style={[styles.sortButton, sortField === 'name' && styles.sortButtonActive]}
                 onPress={() => {
-                  const url = `${settings.serverUrl}/${upload.file_name}`;
-                  Linking.openURL(url);
+                  if (sortField === 'name') {
+                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortField('name');
+                    setSortDirection('asc');
+                  }
                 }}
-                style={styles.uploadDetails}>
-                <View style={styles.fileNameRow}>
-                  <ThemedText style={styles.fileName}>{upload.file_name}</ThemedText>
-                  <MaterialIcons name="open-in-new" size={16} color="#666666" />
-                </View>
-                <ThemedText style={styles.fileInfo}>
-                  Size: {formatFileSize(upload.file_size)}
-                </ThemedText>
-                <ThemedText style={styles.fileInfo}>
-                  Expires: {formatDate(upload.expires_at_utc)}
+              >
+                <ThemedText style={[styles.sortButtonText, sortField === 'name' && styles.sortButtonTextActive]}>
+                  Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </ThemedText>
               </Pressable>
-              <ThemedView style={styles.buttonRow}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.button,
-                    styles.copyButton,
-                    { opacity: pressed ? 0.7 : 1 }
-                  ]}
-                  onPress={() => handleCopy(upload.file_name)}
-                >
-                  <ThemedText style={styles.buttonText}>Copy URL</ThemedText>
-                </Pressable>
-                {settings.deleteToken !== '' && (
+              <Pressable
+                style={[styles.sortButton, sortField === 'size' && styles.sortButtonActive]}
+                onPress={() => {
+                  if (sortField === 'size') {
+                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortField('size');
+                    setSortDirection('asc');
+                  }
+                }}
+              >
+                <ThemedText style={[styles.sortButtonText, sortField === 'size' && styles.sortButtonTextActive]}>
+                  Size {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.sortButton, sortField === 'expiration' && styles.sortButtonActive]}
+                onPress={() => {
+                  if (sortField === 'expiration') {
+                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortField('expiration');
+                    setSortDirection('asc');
+                  }
+                }}
+              >
+                <ThemedText style={[styles.sortButtonText, sortField === 'expiration' && styles.sortButtonTextActive]}>
+                  Expires {sortField === 'expiration' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </ThemedText>
+              </Pressable>
+            </ScrollView>
+
+            {
+              sortUploads(uploads, sortField, sortDirection).map((upload) => (
+                <ThemedView key={upload.file_name} style={styles.uploadItem}>
                   <Pressable
-                    style={({ pressed }) => [
-                      styles.button,
-                      styles.deleteButton,
-                      { opacity: pressed ? 0.7 : 1 }
-                    ]}
                     onPress={() => {
-                      Alert.alert(
-                        'Confirm Delete',
-                        `Are you sure you want to delete ${upload.file_name}?`,
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Delete', style: 'destructive', onPress: () => handleDelete(upload.file_name) }
-                        ]
-                      );
+                      const url = `${settings.serverUrl}/${upload.file_name}`;
+                      Linking.openURL(url);
                     }}
-                  >
-                    <ThemedText style={styles.buttonText}>Delete</ThemedText>
+                    style={styles.uploadDetails}>
+                    <View style={styles.fileNameRow}>
+                      <ThemedText style={styles.fileName}>{upload.file_name}</ThemedText>
+                      <MaterialIcons name="open-in-new" size={16} color="#666666" />
+                    </View>
+                    <ThemedText style={styles.fileInfo}>
+                      Size: {formatFileSize(upload.file_size)}
+                    </ThemedText>
+                    <ThemedText style={styles.fileInfo}>
+                      Expires: {formatDate(upload.expires_at_utc)}
+                    </ThemedText>
                   </Pressable>
-                )}
-              </ThemedView>
-            </ThemedView>
-          ))
+                  <ThemedView style={styles.buttonRow}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.button,
+                        styles.copyButton,
+                        { opacity: pressed ? 0.7 : 1 }
+                      ]}
+                      onPress={() => handleCopy(upload.file_name)}
+                    >
+                      <ThemedText style={styles.buttonText}>Copy URL</ThemedText>
+                    </Pressable>
+                    {settings.deleteToken !== '' && (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.button,
+                          styles.deleteButton,
+                          { opacity: pressed ? 0.7 : 1 }
+                        ]}
+                        onPress={() => {
+                          Alert.alert(
+                            'Confirm Delete',
+                            `Are you sure you want to delete ${upload.file_name}?`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: () => handleDelete(upload.file_name) }
+                            ]
+                          );
+                        }}
+                      >
+                        <ThemedText style={styles.buttonText}>Delete</ThemedText>
+                      </Pressable>
+                    )}
+                  </ThemedView>
+                </ThemedView>
+              ))
+            }
+          </>
         )}
       </ScrollView>
     </>
