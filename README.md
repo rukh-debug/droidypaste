@@ -99,7 +99,7 @@ eas build --platform ios
 
 # TODO
 
-- [ ] Share intent integration (files, text can be shared through other app)
+- [x] Share intent integration (files, text can be shared through other app)
 - [x] Page dedicated for Listing all endpoints & deleting endpoints
 - [x] Usable without authtoken
 - [ ] Release on fdroid store
