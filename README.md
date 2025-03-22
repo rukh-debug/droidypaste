@@ -11,23 +11,16 @@ A modern Android application for text sharing, file sharing and URL shortening s
 |:---------:|:------------:|:------------:|
 | ![Upload page](assets/0.png) | ![Uploads page](assets/1.png)  | ![Setting page](assets/2.png) |
 
-## Installation
+## Development
 
+### nix-way
 1. Clone the repository
-2. Change directory to src
-2. Install dependencies:
 ```bash
-npm install
+nix develop
+avdmanager create avd -k 'system-images;android-35;google_apis;x86_64' -n default --device "pixel_6"
+emulator @default
+npm run android
 ```
-
-3. Start the development server:
-```bash
-npm start android
-```
-
-4. Follow the Expo CLI instructions to run on your desired platform 
-
-`Note: droidypaste is only tested in android platform"
 
 ## Configuration
 
