@@ -1,4 +1,0 @@
-/home/rukh/repos/droidypaste/.devenv.flake.nix
-/home/rukh/repos/droidypaste/devenv.lock
-/home/rukh/repos/droidypaste/devenv.nix
-/home/rukh/repos/droidypaste/devenv.yaml
