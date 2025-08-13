@@ -11,6 +11,7 @@ import { useShareIntent } from 'expo-share-intent';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SettingsProvider, useSettings } from '@/hooks/useSettings';
 import { shortenUrl, uploadFile, uploadText } from '@/services/api';
+import { setupNotificationResponseHandler, requestNotificationsPermission } from '@/services/notifications';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -19,6 +20,21 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { settings, isLoading } = useSettings();
   const { hasShareIntent, shareIntent, resetShareIntent, error } = useShareIntent();
+
+  // Initialize notification system
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        await requestNotificationsPermission();
+        setupNotificationResponseHandler();
+        console.log('Notification system initialized');
+      } catch (error) {
+        console.error('Failed to initialize notification system:', error);
+      }
+    };
+
+    initializeNotifications();
+  }, []);
 
   // Handle shared content via share intent
   useEffect(() => {
@@ -37,20 +53,23 @@ function RootLayoutNav() {
         // console.log('Processing share intent:', hasShareIntent, shareIntent, error);
 
         try {
+          const options = {
+            expiry: settings.expiry,
+            oneshot: settings.isOneShot,
+          };
           // Handle different types of shared content
           if (shareIntent.files && shareIntent.files.length > 0) {
             // Handle all files
             for (const file of shareIntent.files) {
               const { path } = file;
               // Handle as generic file
-              // console.log('Uploading shared file:', path);
+              console.log('Uploading shared file:', path);
               const url = await uploadFile(
                 path,
                 settings.serverUrl,
-                settings.authToken
+                settings.authToken,
+                options
               );
-              await Clipboard.setStringAsync(url);
-              ToastAndroid.show('File uploaded and URL copied to clipboard', ToastAndroid.SHORT);
               console.log('File uploaded successfully:', url);
             }
           } else if (shareIntent.type === 'text' && shareIntent.text) {
@@ -59,10 +78,9 @@ function RootLayoutNav() {
             const url: any = await uploadText(
               shareIntent.text,
               settings.serverUrl,
-              settings.authToken
+              settings.authToken,
+              options
             );
-            ToastAndroid.show('Text uploaded and URL copied to clipboard', ToastAndroid.SHORT);
-            await Clipboard.setStringAsync(url);
             console.log('Text uploaded successfully:', url);
           } else if (shareIntent.webUrl) {
             // Handle web URL - shorten it
@@ -70,10 +88,9 @@ function RootLayoutNav() {
             const shortenedUrl: any = await shortenUrl(
               shareIntent.webUrl,
               settings.serverUrl,
-              settings.authToken
+              settings.authToken,
+              options
             );
-            ToastAndroid.show('URL shortened and URL copied to clipboard', ToastAndroid.SHORT);
-            await Clipboard.setStringAsync(shortenedUrl);
             console.log('URL shortened successfully:', shortenedUrl);
           }
 
