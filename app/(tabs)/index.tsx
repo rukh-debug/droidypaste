@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   sortButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#A7C83F',
   },
   sortButtonText: {
     fontSize: 14,
@@ -373,10 +373,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   copyButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#A7C83F',
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#E38C19',
   },
   buttonText: {
     color: '#FFFFFF',

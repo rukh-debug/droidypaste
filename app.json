@@ -79,7 +79,14 @@
       "expo-image-picker",
       "expo-document-picker",
       "expo-notifications",
-      "expo-share-intent",
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "text/*", "image/*", "video/*", "audio/*", "*/*"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {
