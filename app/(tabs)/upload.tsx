@@ -9,7 +9,7 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { useSettings } from '@/hooks/useSettings';
 import { uploadText, shortenUrl, uploadFromRemoteUrl } from '@/services/api';
 import { pickAndUploadFile, pickAndUploadImage, ShareOptions } from '@/services/sharing';
-import { notifyUploadError, notifyUploadSuccess, requestNotificationsPermission } from '@/services/notifications';
+import { requestNotificationsPermission } from '@/services/notifications';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
@@ -24,18 +24,25 @@ export default function UploadScreen() {
   const [url, setUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isOptionsExpanded, setIsOptionsExpanded] = useState(false);
+  const [tempOptionIsOnMessage, setTempOptionIsOnMessage] = useState(false);
   const { settings, setExpiry, setIsOneShot } = useSettings();
+
 
   const [tempExpiry, setTempExpiry] = useState(settings.expiry);
   const [tempIsOneShot, setTempIsOneShot] = useState(settings.isOneShot);
 
   useEffect(() => {
     setTempExpiry(settings.expiry);
+    console.log('settings.expiry changed:', settings.expiry);
   }, [settings.expiry]);
 
   useEffect(() => {
     setTempIsOneShot(settings.isOneShot);
+    console.log('settings.isOneShot changed:', settings.isOneShot);
   }, [settings.isOneShot]);
+
+  // Check if temporary options differ from saved settings
+  const hasUnsavedChanges = tempExpiry !== settings.expiry || tempIsOneShot !== settings.isOneShot;
 
   const cardColor = useThemeColor({ light: '#ffffff', dark: '#1C1C1E' }, 'background');
   const inputBackground = useThemeColor({ light: '#F0F0F0', dark: '#2C2C2E' }, 'background');
@@ -79,8 +86,8 @@ export default function UploadScreen() {
     try {
       await requestNotificationsPermission();
       const options: ShareOptions = {
-        expiry: settings.expiry.trim() || undefined,
-        oneshot: settings.isOneShot || undefined,
+        expiry: tempExpiry.trim() || undefined,
+        oneshot: tempIsOneShot || undefined,
       };
 
       let resultUrl: string | undefined;
@@ -105,7 +112,7 @@ export default function UploadScreen() {
             Alert.alert('Error', 'Please enter a URL to shorten.');
             return;
           }
-          resultUrl = await shortenUrl(url.trim(), settings.serverUrl, settings.authToken) as string;
+          resultUrl = await shortenUrl(url.trim(), settings.serverUrl, settings.authToken, options) as string;
           setUrl('');
           break;
         case 'remote':
@@ -118,16 +125,13 @@ export default function UploadScreen() {
           break;
       }
 
-      if (resultUrl) {
-        await notifyUploadSuccess(type.charAt(0).toUpperCase() + type.slice(1), resultUrl);
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      await notifyUploadError(type.charAt(0).toUpperCase() + type.slice(1), message);
+      console.error('Upload error:', message);
     } finally {
       setIsUploading(false);
     }
-  }, [text, url, isUploading, settings]);
+  }, [text, url, isUploading, settings, tempExpiry, tempIsOneShot]);
 
   const renderSectionHeader = (title: string, icon: React.ComponentProps<typeof Ionicons>['name'], isCollapsible = false) => (
     <Pressable onPress={isCollapsible ? toggleOptions : undefined} style={styles.sectionHeader}>
@@ -161,9 +165,9 @@ export default function UploadScreen() {
                 </ThemedView>
                 <Switch
                   value={tempIsOneShot}
-                  onValueChange={setTempIsOneShot}
+                  onValueChange={(value) => setTempIsOneShot(value)}
                   trackColor={{ false: '#767577', true: primaryColor }}
-                  thumbColor={tempIsOneShot && Platform.OS === 'ios' ? textColor : '#f4f3f4'}
+                  thumbColor={tempIsOneShot ? '#FFFFFF' : '#f4f3f4'}
                   disabled={isUploading}
                 />
               </ThemedView>
@@ -185,9 +189,24 @@ export default function UploadScreen() {
               <Pressable onPress={() => IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: 'https://github.com/orhun/rustypaste?tab=readme-ov-file#expiration' })}>
                 <ThemedText style={styles.helpText}>Learn about expiration syntax</ThemedText>
               </Pressable>
+              {hasUnsavedChanges && (
+                <ThemedView style={styles.warningMessage}>
+                  <Ionicons name="information-circle-outline" size={16} color="#FF9500" />
+                  <ThemedText style={styles.warningText}>
+                    These temporary options will override your saved settings for uploads
+                  </ThemedText>
+                </ThemedView>
+              )}
               <Pressable
-                style={({ pressed }) => [styles.saveButton, { opacity: pressed ? 0.8 : 1, marginTop: 16 }]}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  {
+                    opacity: !hasUnsavedChanges ? 0.5 : pressed ? 0.8 : 1,
+                    marginTop: 16
+                  }
+                ]}
                 onPress={handleSaveUploadOptions}
+                disabled={!hasUnsavedChanges}
               >
                 <ThemedText style={styles.saveButtonText}>Save Options</ThemedText>
               </Pressable>
@@ -198,18 +217,28 @@ export default function UploadScreen() {
               <ThemedView style={styles.summaryItem}>
                 <Ionicons name="flame-outline" size={16} color={subtleTextColor} />
                 <ThemedText style={[styles.summaryText, { color: subtleTextColor }]}>
-                  {`One-shot: ${settings.isOneShot ? 'enabled' : 'disabled'}`}
+                  {`One-shot: ${tempIsOneShot ? 'enabled' : 'disabled'}`}
                 </ThemedText>
               </ThemedView>
               <ThemedView style={styles.summaryItem}>
                 <Ionicons name="timer-outline" size={16} color={subtleTextColor} />
                 <ThemedText style={[styles.summaryText, { color: subtleTextColor }]}>
-                  {`Expiry: ${settings.expiry.trim() || 'Permanent'}`}
+                  {`Expiry: ${tempExpiry.trim() || 'Permanent'}`}
                 </ThemedText>
               </ThemedView>
             </ThemedView>
           )}
         </ThemedView>
+
+        {/* Unsaved Changes Warning - Outside Options Panel */}
+        {hasUnsavedChanges && !isOptionsExpanded && (
+          <ThemedView style={[styles.warningMessage, styles.warningCard, { backgroundColor: cardColor, marginBottom: 16 }]}>
+            <Ionicons name="information-circle-outline" size={16} color="#FF9500" />
+            <ThemedText style={styles.warningText}>
+              You have unsaved upload options that will be used for uploads
+            </ThemedText>
+          </ThemedView>
+        )}
 
         {/* Text Upload Card */}
         <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
@@ -369,6 +398,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingTop: 4,
   },
+  infoMessage: {
+    textAlign: 'center',
+    fontSize: 14,
+    marginVertical: 8,
+    paddingHorizontal: 8,
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
   summaryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -431,5 +468,36 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  warningMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 149, 0, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  warningCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#FF9500',
+    fontWeight: '500',
   },
 });
