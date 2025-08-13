@@ -80,7 +80,7 @@ export async function uploadText(
   if (authToken) headers["Authorization"] = authToken;
   if (options.expiry) headers["expire"] = options.expiry;
 
-  console.log("Making request to:", serverUrl, headers, formData);
+  console.log("Making request to:", serverUrl, formData);
 
   try {
     const finalUrl = formatUrl(serverUrl);
@@ -130,7 +130,6 @@ export async function uploadFile(
     throw error;
   }
 
-  console.log(options)
 
   const formData = new FormData();
   const filename = uri.split("/").pop() || "file";
@@ -141,8 +140,7 @@ export async function uploadFile(
   if (authToken) headers["Authorization"] = authToken;
   if (options.expiry) headers["expire"] = options.expiry;
 
-  console.log("Making file upload request to:", serverUrl, headers);
-  console.log(formData);
+  console.log("Making file upload request to:", serverUrl, formData);
 
   try {
     const finalUrl = formatUrl(serverUrl);
@@ -198,9 +196,8 @@ export async function shortenUrl(
 
   if (options.expiry) headers["expire"] = options.expiry;
 
-
-  console.log("Making URL shortening request to:", serverUrl, headers, formData);
   console.log("URL to shorten:", urlToShorten);
+  console.log("Making URL shortening request to:", serverUrl, formData);
 
   try {
     const finalUrl = formatUrl(serverUrl);
