@@ -1,22 +1,25 @@
-import { StyleSheet, TextInput, ScrollView, Alert, Pressable, ToastAndroid } from 'react-native';
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { StyleSheet, TextInput, ScrollView, Alert, Pressable, ToastAndroid, Platform, Linking } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
-
-import { Collapsible } from '@/components/Collapsible';
+import { Stack } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useSettings } from '@/hooks/useSettings';
 import { useThemeColor } from '@/hooks/useThemeColor';
-
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
-
 export default function SettingsScreen() {
-  const { settings, setServerUrl, setAuthToken, setDeleteToken } = useSettings();
+  const { settings, setServerUrl, setAuthToken, setDeleteToken, isLoading: settingsLoading } = useSettings();
   const [tempServerUrl, setTempServerUrl] = useState(settings.serverUrl);
   const [tempAuthToken, setTempAuthToken] = useState(settings.authToken);
   const [tempDeleteToken, setTempDeleteToken] = useState(settings.deleteToken);
-  const inputBackground = useThemeColor({ light: '#f0f0f0', dark: '#dadada' }, 'background');
+
+  const cardColor = useThemeColor({ light: '#ffffff', dark: '#1C1C1E' }, 'background');
+  const inputBackground = useThemeColor({ light: '#F0F0F0', dark: '#2C2C2E' }, 'background');
+  const textColor = useThemeColor({ light: '#000000', dark: '#FFFFFF' }, 'text');
+  const subtleTextColor = useThemeColor({ light: '#6c757d', dark: '#adb5bd' }, 'text');
+  const primaryColor = '#A7C83F';
 
   const handleSaveSettings = useCallback(async () => {
     try {
@@ -25,31 +28,11 @@ export default function SettingsScreen() {
         return;
       }
 
-      if (!tempAuthToken.trim()) {
-        await new Promise((resolve) => {
-          Alert.alert(
-            'Warning',
-            'If your server requires authentication, you need to provide an auth token',
-            [{ text: 'OK', onPress: resolve }]
-          );
-        });
-      }
-
-      if (!tempDeleteToken.trim()) {
-        await new Promise((resolve) => {
-          Alert.alert(
-            'Warning',
-            'Without delete token you won\'t be able to delete pastes',
-            [{ text: 'OK', onPress: resolve }]
-          );
-        });
-      }
-
       // Basic URL validation
       try {
         new URL(tempServerUrl);
       } catch (e) {
-        Alert.alert('Error', 'Invalid server URL format');
+        Alert.alert('Error', 'Invalid server URL format. Please include http:// or https://');
         return;
       }
 
@@ -58,8 +41,7 @@ export default function SettingsScreen() {
         setAuthToken(tempAuthToken.trim()),
         setDeleteToken(tempDeleteToken.trim()),
       ]);
-      
-      // Alert.alert('Success', 'Settings saved successfully');
+
       ToastAndroid.show('Settings saved successfully', ToastAndroid.SHORT);
     } catch (error) {
       Alert.alert('Error', 'Failed to save settings');
@@ -67,71 +49,84 @@ export default function SettingsScreen() {
     }
   }, [tempServerUrl, tempAuthToken, tempDeleteToken, setServerUrl, setAuthToken, setDeleteToken]);
 
+  const renderSectionHeader = (title: string, icon: React.ComponentProps<typeof Ionicons>['name']) => (
+    <ThemedView style={styles.sectionHeader}>
+      <Ionicons name={icon} size={22} color={subtleTextColor} />
+      <ThemedText type="subtitle" style={styles.sectionTitle}>{title}</ThemedText>
+    </ThemedView>
+  );
+
+  const renderInputRow = (
+    label: string,
+    value: string,
+    setter: (text: string) => void,
+    placeholder: string,
+    icon: React.ComponentProps<typeof Ionicons>['name'],
+    isSecure = false
+  ) => (
+    <ThemedView style={styles.inputContainer}>
+      <Ionicons name={icon} size={20} color={subtleTextColor} style={styles.inputIcon} />
+      <TextInput
+        style={[styles.input, { backgroundColor: inputBackground, color: textColor }]}
+        value={value}
+        onChangeText={setter}
+        placeholder={placeholder}
+        placeholderTextColor="#888"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType={label === 'Server URL' ? 'url' : 'default'}
+        secureTextEntry={isSecure}
+        editable={!settingsLoading}
+      />
+    </ThemedView>
+  );
+
   return (
-    <ScrollView style={styles.container}
-      contentContainerStyle={{
-        marginTop: Constants.statusBarHeight,
-      }}
-    >
-      <ThemedView style={styles.section}>
-        <ThemedText type="title" style={styles.title}>
-          Server Configuration
-        </ThemedText>
-
-        <ThemedText style={styles.label}>Server URL</ThemedText>
-        <TextInput
-          style={[styles.input, { backgroundColor: inputBackground }]}
-          value={tempServerUrl}
-          onChangeText={setTempServerUrl}
-          placeholder="https://paste.example.com"
-          placeholderTextColor="#888"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-        />
-
-        <ThemedText style={styles.label}>Auth Token</ThemedText>
-        <TextInput
-          style={[styles.input, { backgroundColor: inputBackground }]}
-          value={tempAuthToken}
-          onChangeText={setTempAuthToken}
-          placeholder="Your authentication token"
-          placeholderTextColor="#888"
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-
-        <ThemedText style={styles.label}>Delete Token</ThemedText>
-        <TextInput
-          style={[styles.input, { backgroundColor: inputBackground }]}
-          value={tempDeleteToken}
-          onChangeText={setTempDeleteToken}
-          placeholder="Your delete token"
-          placeholderTextColor="#888"
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-
-        <ThemedView
-          style={[styles.saveButton, { opacity: !tempServerUrl ? 0.5 : 1 }]}
-          onTouchEnd={handleSaveSettings}
-        >
-          <ThemedText style={styles.saveButtonText}>Save Settings</ThemedText>
+    <>
+      <Stack.Screen options={{ title: 'Settings', headerLargeTitle: true }} />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Server Configuration Card */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+          {renderSectionHeader('Server Configuration', 'server-outline')}
+          {renderInputRow('Server URL', tempServerUrl, setTempServerUrl, 'https://paste.example.com', 'globe-outline')}
+          {renderInputRow('Auth Token', tempAuthToken, setTempAuthToken, 'Auth Token', 'key-outline', true)}
+          {renderInputRow('Delete Token', tempDeleteToken, setTempDeleteToken, 'Delete Token', 'trash-bin-outline', true)}
+          <Pressable
+            style={({ pressed }) => [
+              styles.saveButton,
+              { backgroundColor: primaryColor, opacity: settingsLoading || !tempServerUrl ? 0.6 : pressed ? 0.8 : 1 }
+            ]}
+            onPress={handleSaveSettings}
+            disabled={settingsLoading || !tempServerUrl}
+          >
+            <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+            <ThemedText style={styles.saveButtonText}>Save Settings</ThemedText>
+          </Pressable>
         </ThemedView>
-      </ThemedView>
 
-      <Collapsible title="About">
-        <ThemedText>
-          This app allows you to easily share files, text, and URLs through your configured
-          <Pressable onPress={() => IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: 'https://github.com/orhun/rustypaste' })}>
-            <ThemedText style={{ color: '#007AFF' }}> rustypaste </ThemedText>
-          </Pressable> service.
-          Make sure to configure your server URL and authentication token in the settings above.
-        </ThemedText>
-      </Collapsible>
-    </ScrollView>
+        {/* About Card */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+          {renderSectionHeader('About DroidyPaste', 'information-circle-outline')}
+          <ThemedText style={{ color: subtleTextColor, lineHeight: 22 }}>
+            This app allows you to easily share files, text, and URLs through your configured{' '}
+            <ThemedText
+              style={{ color: primaryColor, fontWeight: '600' }}
+              onPress={() => Linking.openURL('https://github.com/orhun/rustypaste')}
+            >
+              rustypaste
+            </ThemedText>
+            {' '}service.
+          </ThemedText>
+          <ThemedText style={{ color: subtleTextColor, lineHeight: 22, marginTop: 12 }}>
+            Built with love for the open-source community.
+          </ThemedText>
+        </ThemedView>
+      </ScrollView>
+    </>
   );
 }
 
@@ -139,27 +134,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  section: {
-    padding: 20,
+  contentContainer: {
+    padding: 16,
+    paddingTop: Constants.statusBarHeight + 16,
   },
-  title: {
-    marginBottom: 20,
+  card: {
+    borderRadius: 12,
+    padding: 16,
+    gap: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  label: {
-    marginBottom: 8,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    opacity: 0.9,
+    backgroundColor: 'transparent',
+  },
+  sectionTitle: {
+    fontWeight: '600',
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    height: 40,
+    flex: 1,
+    height: 44,
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginBottom: 16,
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#A7C83F',
-    padding: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
     marginTop: 8,
   },
   saveButtonText: {

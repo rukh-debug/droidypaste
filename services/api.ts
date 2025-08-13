@@ -291,7 +291,7 @@ export async function uploadFromRemoteUrl(
   if (authToken) headers['Authorization'] = authToken;
   if (options.expiry) headers['expire'] = options.expiry;
 
-  console.log('Making remote upload request to:', serverUrl);
+  console.log('Making remote upload request to:', serverUrl, headers, formData);
   console.log('Remote URL to fetch:', remoteUrl);
 
   try {

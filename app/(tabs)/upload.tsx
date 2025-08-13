@@ -1,9 +1,8 @@
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, TextInput, Alert, ScrollView, Pressable } from 'react-native';
+import React, { useCallback, useState, useEffect } from 'react';
+import { StyleSheet, TextInput, Alert, ScrollView, Pressable, Switch, Platform, LayoutAnimation, UIManager, ToastAndroid } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -11,66 +10,107 @@ import { useSettings } from '@/hooks/useSettings';
 import { uploadText, shortenUrl, uploadFromRemoteUrl } from '@/services/api';
 import { pickAndUploadFile, pickAndUploadImage, ShareOptions } from '@/services/sharing';
 import { notifyUploadError, notifyUploadSuccess, requestNotificationsPermission } from '@/services/notifications';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type UploadType = 'text' | 'file' | 'image' | 'url' | 'remote';
 
 export default function UploadScreen() {
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
-  const [expiry, setExpiry] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const { settings } = useSettings();
+  const [isOptionsExpanded, setIsOptionsExpanded] = useState(false);
+  const { settings, setExpiry, setIsOneShot } = useSettings();
 
-  const inputBackground = useThemeColor({ light: '#f0f0f0', dark: '#dadada' }, 'background');
+  const [tempExpiry, setTempExpiry] = useState(settings.expiry);
+  const [tempIsOneShot, setTempIsOneShot] = useState(settings.isOneShot);
 
-  const handleUpload = useCallback(async (type: UploadType, oneshot = false) => {
+  useEffect(() => {
+    setTempExpiry(settings.expiry);
+  }, [settings.expiry]);
+
+  useEffect(() => {
+    setTempIsOneShot(settings.isOneShot);
+  }, [settings.isOneShot]);
+
+  const cardColor = useThemeColor({ light: '#ffffff', dark: '#1C1C1E' }, 'background');
+  const inputBackground = useThemeColor({ light: '#F0F0F0', dark: '#2C2C2E' }, 'background');
+  const textColor = useThemeColor({ light: '#000000', dark: '#FFFFFF' }, 'text');
+  const subtleTextColor = useThemeColor({ light: '#6c757d', dark: '#adb5bd' }, 'text');
+  const primaryColor = '#A7C83F';
+  const separatorColor = useThemeColor({ light: '#E5E5EA', dark: '#3A3A3C' }, 'background');
+
+  const rotation = useSharedValue(isOptionsExpanded ? 0 : -90);
+
+  const animatedChevronStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${rotation.value}deg` }],
+    };
+  });
+
+  const toggleOptions = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    rotation.value = withTiming(isOptionsExpanded ? -90 : 0, { duration: 200 });
+    setIsOptionsExpanded(!isOptionsExpanded);
+  }, [isOptionsExpanded, rotation]);
+
+  const handleSaveUploadOptions = useCallback(async () => {
+    try {
+      await setExpiry(tempExpiry);
+      await setIsOneShot(tempIsOneShot);
+      ToastAndroid.show('Upload options saved', ToastAndroid.SHORT);
+      if (isOptionsExpanded) {
+        toggleOptions();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save upload options');
+      console.error(error);
+    }
+  }, [tempExpiry, tempIsOneShot, setExpiry, setIsOneShot, isOptionsExpanded, toggleOptions]);
+
+  const handleUpload = useCallback(async (type: UploadType) => {
     if (isUploading) return;
     setIsUploading(true);
 
     try {
       await requestNotificationsPermission();
-      const options: ShareOptions = {};
-
-      if (expiry.trim()) {
-        options.expiry = expiry.trim();
-      }
-
-      if (oneshot) {
-        options.oneshot = true;
-      }
+      const options: ShareOptions = {
+        expiry: settings.expiry.trim() || undefined,
+        oneshot: settings.isOneShot || undefined,
+      };
 
       let resultUrl: string | undefined;
 
       switch (type) {
         case 'text':
           if (!text.trim()) {
-            Alert.alert('Error', 'Please enter some text');
+            Alert.alert('Error', 'Please enter some text to upload.');
             return;
           }
           resultUrl = await uploadText(text.trim(), settings.serverUrl, settings.authToken, options) as string;
           setText('');
           break;
-
         case 'file':
           resultUrl = await pickAndUploadFile(settings.serverUrl, settings.authToken, options) as string;
           break;
-
         case 'image':
           resultUrl = await pickAndUploadImage(settings.serverUrl, settings.authToken, options) as string;
           break;
-
         case 'url':
           if (!url.trim()) {
-            Alert.alert('Error', 'Please enter a URL');
+            Alert.alert('Error', 'Please enter a URL to shorten.');
             return;
           }
           resultUrl = await shortenUrl(url.trim(), settings.serverUrl, settings.authToken) as string;
           setUrl('');
           break;
-
         case 'remote':
           if (!url.trim()) {
-            Alert.alert('Error', 'Please enter a remote URL');
+            Alert.alert('Error', 'Please enter a remote URL to upload.');
             return;
           }
           resultUrl = await uploadFromRemoteUrl(url.trim(), settings.serverUrl, settings.authToken, options) as string;
@@ -83,149 +123,168 @@ export default function UploadScreen() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      await notifyUploadError(
-        type.charAt(0).toUpperCase() + type.slice(1),
-        message
-      );
+      await notifyUploadError(type.charAt(0).toUpperCase() + type.slice(1), message);
     } finally {
       setIsUploading(false);
     }
-  }, [text, url, expiry, isUploading]);
+  }, [text, url, isUploading, settings]);
+
+  const renderSectionHeader = (title: string, icon: React.ComponentProps<typeof Ionicons>['name'], isCollapsible = false) => (
+    <Pressable onPress={isCollapsible ? toggleOptions : undefined} style={styles.sectionHeader}>
+      <Ionicons name={icon} size={22} color={subtleTextColor} />
+      <ThemedText type="subtitle" style={styles.sectionTitle}>{title}</ThemedText>
+      {isCollapsible && (
+        <Animated.View style={[styles.chevron, animatedChevronStyle]}>
+          <Ionicons name="chevron-down" size={24} color={subtleTextColor} />
+        </Animated.View>
+      )}
+    </Pressable>
+  );
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Upload',
-          headerLargeTitle: true,
-        }}
-      />
-
-      <ScrollView style={styles.container}
-        contentContainerStyle={{ marginTop: Constants.statusBarHeight }}
+      <Stack.Screen options={{ title: 'Upload', headerLargeTitle: true }} />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
       >
+        {/* Options Card */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor, paddingBottom: isOptionsExpanded ? 16 : 8 }]}>
+          {renderSectionHeader('Upload Options', 'options-outline', true)}
+          {isOptionsExpanded && (
+            <ThemedView>
+              <ThemedView style={styles.optionRow}>
+                <ThemedView style={styles.optionLabelContainer}>
+                  <Ionicons name="flame-outline" size={20} color={subtleTextColor} />
+                  <ThemedText style={styles.optionLabel}>One-shot Upload</ThemedText>
+                </ThemedView>
+                <Switch
+                  value={tempIsOneShot}
+                  onValueChange={setTempIsOneShot}
+                  trackColor={{ false: '#767577', true: primaryColor }}
+                  thumbColor={tempIsOneShot && Platform.OS === 'ios' ? textColor : '#f4f3f4'}
+                  disabled={isUploading}
+                />
+              </ThemedView>
+              <ThemedView style={[styles.separator, { backgroundColor: separatorColor }]} />
+              <ThemedView style={styles.optionRow}>
+                <ThemedView style={styles.optionLabelContainer}>
+                  <Ionicons name="timer-outline" size={20} color={subtleTextColor} />
+                  <ThemedText style={styles.optionLabel}>Expires in</ThemedText>
+                </ThemedView>
+                <TextInput
+                  style={[styles.expiryInput, { backgroundColor: inputBackground, color: textColor }]}
+                  value={tempExpiry}
+                  onChangeText={setTempExpiry}
+                  placeholder="e.g., 1h, 1d"
+                  placeholderTextColor="#888"
+                  editable={!isUploading}
+                />
+              </ThemedView>
+              <Pressable onPress={() => IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: 'https://github.com/orhun/rustypaste?tab=readme-ov-file#expiration' })}>
+                <ThemedText style={styles.helpText}>Learn about expiration syntax</ThemedText>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.saveButton, { opacity: pressed ? 0.8 : 1, marginTop: 16 }]}
+                onPress={handleSaveUploadOptions}
+              >
+                <ThemedText style={styles.saveButtonText}>Save Options</ThemedText>
+              </Pressable>
+            </ThemedView>
+          )}
+          {!isOptionsExpanded && (
+            <ThemedView style={styles.summaryContainer}>
+              <ThemedView style={styles.summaryItem}>
+                <Ionicons name="flame-outline" size={16} color={subtleTextColor} />
+                <ThemedText style={[styles.summaryText, { color: subtleTextColor }]}>
+                  {`One-shot: ${settings.isOneShot ? 'enabled' : 'disabled'}`}
+                </ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.summaryItem}>
+                <Ionicons name="timer-outline" size={16} color={subtleTextColor} />
+                <ThemedText style={[styles.summaryText, { color: subtleTextColor }]}>
+                  {`Expiry: ${settings.expiry.trim() || 'Permanent'}`}
+                </ThemedText>
+              </ThemedView>
+            </ThemedView>
+          )}
+        </ThemedView>
 
-        <ThemedView style={styles.section}>
-          <ThemedText type="title">Text Upload</ThemedText>
+        {/* Text Upload Card */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+          {renderSectionHeader('Paste Text', 'text-outline')}
           <TextInput
-            style={[styles.input, styles.textArea, { backgroundColor: inputBackground }]}
+            style={[styles.input, styles.textArea, { backgroundColor: inputBackground, color: textColor }]}
             value={text}
             onChangeText={setText}
             placeholder="Enter text to upload..."
             placeholderTextColor="#888"
             multiline
-            numberOfLines={4}
             editable={!isUploading}
           />
+          <Pressable
+            style={({ pressed }) => [styles.button, { backgroundColor: primaryColor, opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+            onPress={() => handleUpload('text')}
+            disabled={isUploading}
+          >
+            <Ionicons name="cloud-upload-outline" size={20} color="#FFFFFF" />
+            <ThemedText style={styles.buttonText}>Upload Text</ThemedText>
+          </Pressable>
+        </ThemedView>
+
+        {/* File Upload Card */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+          {renderSectionHeader('Upload File', 'document-attach-outline')}
           <ThemedView style={styles.buttonRow}>
             <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('text')}
+              style={({ pressed }) => [styles.button, styles.secondaryButton, { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+              onPress={() => handleUpload('file')}
               disabled={isUploading}
             >
-              <ThemedText style={styles.buttonText}>Upload Text</ThemedText>
+              <Ionicons name="document-outline" size={20} color={primaryColor} />
+              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Choose File</ThemedText>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('text', true)}
+              style={({ pressed }) => [styles.button, styles.secondaryButton, { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+              onPress={() => handleUpload('image')}
               disabled={isUploading}
             >
-              <ThemedText style={styles.buttonText}>One-shot Text</ThemedText>
+              <Ionicons name="image-outline" size={20} color={primaryColor} />
+              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Choose Image</ThemedText>
             </Pressable>
           </ThemedView>
         </ThemedView>
 
-        <ThemedView style={styles.section}>
-          <ThemedText type="title">URL Operations</ThemedText>
+        {/* URL Card */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+          {renderSectionHeader('From URL', 'link-outline')}
           <TextInput
-            style={[styles.input, { backgroundColor: inputBackground }]}
+            style={[styles.input, { backgroundColor: inputBackground, color: textColor }]}
             value={url}
             onChangeText={setUrl}
-            placeholder="Enter URL..."
+            placeholder="URL to shorten or upload from remote"
             placeholderTextColor="#888"
             autoCapitalize="none"
-            autoCorrect={false}
             keyboardType="url"
             editable={!isUploading}
           />
           <ThemedView style={styles.buttonRow}>
             <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
+              style={({ pressed }) => [styles.button, styles.secondaryButton, { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
               onPress={() => handleUpload('url')}
               disabled={isUploading}
             >
-              <ThemedText style={styles.buttonText}>Shorten URL</ThemedText>
+              <Ionicons name="cut-outline" size={20} color={primaryColor} />
+              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Shorten</ThemedText>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
+              style={({ pressed }) => [styles.button, { backgroundColor: primaryColor, opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
               onPress={() => handleUpload('remote')}
               disabled={isUploading}
             >
-              <ThemedText style={styles.buttonText}>Upload Remote</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedView style={styles.section}>
-          <ThemedView style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <ThemedText type="title">File Upload</ThemedText>
-            <Pressable onPress={() => IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: 'https://github.com/orhun/rustypaste?tab=readme-ov-file#expiration' })}>
-              <ThemedText style={{ color: '#007AFF' }}>Expiration help</ThemedText>
-            </Pressable>
-          </ThemedView>
-
-          <TextInput
-            style={[styles.input, { backgroundColor: inputBackground }]}
-            value={expiry}
-            onChangeText={setExpiry}
-            placeholder="Expiry (optional, e.g. 1h, 1d)"
-            placeholderTextColor="#888"
-            editable={!isUploading}
-          />
-          <ThemedView style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('file')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Upload File</ThemedText>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('image')}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>Upload Image</ThemedText>
-            </Pressable>
-          </ThemedView>
-          <ThemedView style={styles.buttonRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { opacity: isUploading ? 0.5 : pressed ? 0.7 : 1 }
-              ]}
-              onPress={() => handleUpload('file', true)}
-              disabled={isUploading}
-            >
-              <ThemedText style={styles.buttonText}>One-shot File</ThemedText>
+              <Ionicons name="cloud-download-outline" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.buttonText}>Upload</ThemedText>
             </Pressable>
           </ThemedView>
         </ThemedView>
@@ -238,20 +297,103 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  section: {
-    padding: 20,
+  contentContainer: {
+    padding: 16,
+    paddingTop: Constants.statusBarHeight + 16,
+  },
+  card: {
+    borderRadius: 12,
+    padding: 16,
     gap: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    opacity: 0.9,
+  },
+  sectionTitle: {
+    fontWeight: '600',
+    flex: 1,
+  },
+  chevron: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  optionLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'transparent',
+  },
+  optionLabel: {
+    backgroundColor: 'transparent',
+    fontSize: 16,
+  },
+  separator: {
+    height: 1,
+    width: '100%',
+  },
+  expiryInput: {
+    height: 40,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    minWidth: 120,
+    textAlign: 'right',
+  },
+  helpText: {
+    color: '#007AFF',
+    textAlign: 'right',
+    fontSize: 14,
+    paddingTop: 4,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   input: {
-    height: 40,
+    height: 44,
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 16,
   },
   textArea: {
-    height: 100,
+    height: 120,
     textAlignVertical: 'top',
-    paddingTop: 8,
+    paddingTop: 12,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -259,12 +401,33 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#A7C83F',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButtonText: {
+    color: '#A7C83F',
+  },
+  saveButton: {
     backgroundColor: '#A7C83F',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  buttonText: {
+  saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',

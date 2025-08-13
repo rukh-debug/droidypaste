@@ -6,6 +6,8 @@ interface Settings {
   serverUrl: string;
   authToken: string;
   deleteToken: string;
+  expiry: string;
+  isOneShot: boolean;
 }
 
 interface SettingsContextType {
@@ -13,6 +15,8 @@ interface SettingsContextType {
   setServerUrl: (url: string) => Promise<void>;
   setAuthToken: (token: string) => Promise<void>;
   setDeleteToken: (token: string) => Promise<void>;
+  setExpiry: (expiry: string) => Promise<void>;
+  setIsOneShot: (isOneShot: boolean) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -20,6 +24,8 @@ const defaultSettings: Settings = {
   serverUrl: '',
   authToken: '',
   deleteToken: '',
+  expiry: '',
+  isOneShot: false,
 };
 
 export const SettingsContext = createContext<SettingsContextType>({
@@ -27,6 +33,8 @@ export const SettingsContext = createContext<SettingsContextType>({
   setServerUrl: async () => {},
   setAuthToken: async () => {},
   setDeleteToken: async () => {},
+  setExpiry: async () => {},
+  setIsOneShot: async () => {},
   isLoading: true,
 });
 
@@ -46,10 +54,12 @@ export function SettingsProvider({ children }: Readonly<PropsWithChildren>) {
     
     const loadSettings = async () => {
       try {
-        const [serverUrl, authToken, deleteToken] = await Promise.all([
+        const [serverUrl, authToken, deleteToken, expiry, isOneShotStr] = await Promise.all([
           AsyncStorage.getItem('serverUrl'),
           SecureStore.getItemAsync('authToken'),
           SecureStore.getItemAsync('deleteToken'),
+          AsyncStorage.getItem('expiry'),
+          AsyncStorage.getItem('isOneShot'),
         ]);
 
         if (isMounted) {
@@ -57,6 +67,8 @@ export function SettingsProvider({ children }: Readonly<PropsWithChildren>) {
             serverUrl: serverUrl || '',
             authToken: authToken || '',
             deleteToken: deleteToken || '',
+            expiry: expiry || '',
+            isOneShot: isOneShotStr ? JSON.parse(isOneShotStr) : false,
           });
         }
       } catch (error) {
@@ -114,6 +126,30 @@ export function SettingsProvider({ children }: Readonly<PropsWithChildren>) {
     }
   };
 
+  const setExpiry = async (expiry: string) => {
+    try {
+      await AsyncStorage.setItem('expiry', expiry);
+      if (mountedRef.current) {
+        setSettings(prev => ({ ...prev, expiry }));
+      }
+    } catch (error) {
+      console.error('Failed to save expiry:', error);
+      throw error;
+    }
+  };
+
+  const setIsOneShot = async (isOneShot: boolean) => {
+    try {
+      await AsyncStorage.setItem('isOneShot', JSON.stringify(isOneShot));
+      if (mountedRef.current) {
+        setSettings(prev => ({ ...prev, isOneShot }));
+      }
+    } catch (error) {
+      console.error('Failed to save isOneShot:', error);
+      throw error;
+    }
+  };
+
   return (
     <SettingsContext.Provider 
       value={{
@@ -121,6 +157,8 @@ export function SettingsProvider({ children }: Readonly<PropsWithChildren>) {
         setServerUrl,
         setAuthToken,
         setDeleteToken,
+        setExpiry,
+        setIsOneShot,
         isLoading,
       }}
     >
