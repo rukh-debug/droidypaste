@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View, ToastAndroid, Linking } from 'react-native';
+import { StyleSheet, Alert, ScrollView, Pressable, ActivityIndicator, RefreshControl, View, ToastAndroid, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 
@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useSettings } from '@/hooks/useSettings';
 import { listUploads, deleteFile } from '@/services/api';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface Upload {
   file_name: string;
@@ -60,6 +61,14 @@ export default function ListScreen() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { settings, isLoading: settingsLoading } = useSettings();
 
+  const cardColor = useThemeColor({ light: '#ffffff', dark: '#1C1C1E' }, 'background');
+  const subtleTextColor = useThemeColor({ light: '#6c757d', dark: '#adb5bd' }, 'text');
+  const primaryColor = '#A7C83F';
+  const destructiveColor = '#E38C19';
+  const iconColor = useThemeColor({ light: '#666666', dark: '#999999' }, 'text');
+  const separatorColor = useThemeColor({ light: '#E5E5EA', dark: '#3A3A3C' }, 'background');
+
+
   const loadUploads = useCallback(async () => {
     try {
       const data = await listUploads(settings.serverUrl, settings.authToken);
@@ -84,7 +93,7 @@ export default function ListScreen() {
       // Refresh the list after successful deletion
 
       loadUploads();
-      Alert.alert('Success', 'File deleted successfully');
+      ToastAndroid.show('File deleted successfully', ToastAndroid.SHORT);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       Alert.alert('Error', `Failed to delete file: ${message}`);
@@ -96,8 +105,6 @@ export default function ListScreen() {
       const url = `${settings.serverUrl}/${fileName}`;
       await Clipboard.setStringAsync(url);
       ToastAndroid.show('URL copied to clipboard', ToastAndroid.SHORT);
-      // Alert.alert('Success', 'URL copied to clipboard');
-
     } catch (error) {
       Alert.alert('Error', 'Failed to copy URL');
     }
@@ -137,6 +144,15 @@ export default function ListScreen() {
     return new Date(dateStr).toLocaleString();
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
   return (
     <>
       <Stack.Screen
@@ -148,10 +164,7 @@ export default function ListScreen() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { marginTop: Constants.statusBarHeight }
-        ]}
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -159,9 +172,6 @@ export default function ListScreen() {
           />
         }
       >
-        <View style={styles.sortControls}>
-          {/* <ThemedText style={styles.sortLabel}>Sort by:</ThemedText> */}
-        </View>
         <ThemedText
           style={{
             fontFamily: 'Takota',
@@ -174,100 +184,91 @@ export default function ListScreen() {
           droidypaste
         </ThemedText>
 
-
-
         {isLoading ? (
           <ActivityIndicator size="large" style={styles.loader} />
         ) : uploads.length === 0 ? (
-          <ThemedText style={styles.emptyText}>No uploads found</ThemedText>
+          <ThemedView style={[styles.card, { backgroundColor: cardColor, alignItems: 'center', paddingVertical: 32 }]}>
+            <Ionicons name="cloud-offline-outline" size={48} color={subtleTextColor} />
+            <ThemedText style={styles.emptyText}>No uploads found</ThemedText>
+            <ThemedText style={{ color: subtleTextColor, textAlign: 'center' }}>Pull down to refresh or upload something new.</ThemedText>
+          </ThemedView>
         ) : (
           <>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortButtonsContainer}>
               <Pressable
-                style={[styles.sortButton, sortField === 'name' && styles.sortButtonActive]}
-                onPress={() => {
-                  if (sortField === 'name') {
-                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setSortField('name');
-                    setSortDirection('asc');
-                  }
-                }}
+                style={[styles.sortButton, { borderColor: separatorColor }, sortField === 'name' && styles.sortButtonActive]}
+                onPress={() => handleSort('name')}
               >
-                <ThemedText style={[styles.sortButtonText, sortField === 'name' && styles.sortButtonTextActive]}>
-                  Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                <ThemedText style={[styles.sortButtonText, { color: subtleTextColor }, sortField === 'name' && styles.sortButtonTextActive]}>
+                  Name {sortField === 'name' && <Ionicons name={sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} />}
                 </ThemedText>
               </Pressable>
               <Pressable
-                style={[styles.sortButton, sortField === 'size' && styles.sortButtonActive]}
-                onPress={() => {
-                  if (sortField === 'size') {
-                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setSortField('size');
-                    setSortDirection('asc');
-                  }
-                }}
+                style={[styles.sortButton, { borderColor: separatorColor }, sortField === 'size' && styles.sortButtonActive]}
+                onPress={() => handleSort('size')}
               >
-                <ThemedText style={[styles.sortButtonText, sortField === 'size' && styles.sortButtonTextActive]}>
-                  Size {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
+                <ThemedText style={[styles.sortButtonText, { color: subtleTextColor }, sortField === 'size' && styles.sortButtonTextActive]}>
+                  Size {sortField === 'size' && <Ionicons name={sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} />}
                 </ThemedText>
               </Pressable>
               <Pressable
-                style={[styles.sortButton, sortField === 'expiration' && styles.sortButtonActive]}
-                onPress={() => {
-                  if (sortField === 'expiration') {
-                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setSortField('expiration');
-                    setSortDirection('asc');
-                  }
-                }}
+                style={[styles.sortButton, { borderColor: separatorColor }, sortField === 'expiration' && styles.sortButtonActive]}
+                onPress={() => handleSort('expiration')}
               >
-                <ThemedText style={[styles.sortButtonText, sortField === 'expiration' && styles.sortButtonTextActive]}>
-                  Expires {sortField === 'expiration' && (sortDirection === 'asc' ? '↑' : '↓')}
+                <ThemedText style={[styles.sortButtonText, { color: subtleTextColor }, sortField === 'expiration' && styles.sortButtonTextActive]}>
+                  Expires {sortField === 'expiration' && <Ionicons name={sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} />}
                 </ThemedText>
               </Pressable>
             </ScrollView>
 
             {
               sortUploads(uploads, sortField, sortDirection).map((upload) => (
-                <ThemedView key={upload.file_name} style={styles.uploadItem}>
+                <ThemedView key={upload.file_name} style={[styles.card, { backgroundColor: cardColor }]}>
                   <Pressable
                     onPress={() => {
                       const url = `${settings.serverUrl}/${upload.file_name}`;
                       Linking.openURL(url);
                     }}
-                    style={styles.uploadDetails}>
-                    <View style={styles.fileNameRow}>
-                      <ThemedText style={styles.fileName}>{upload.file_name}</ThemedText>
-                      <MaterialIcons name="open-in-new" size={16} color="#666666" />
-                    </View>
-                    <ThemedText style={styles.fileInfo}>
-                      Size: {formatFileSize(upload.file_size)}
-                    </ThemedText>
-                    <ThemedText style={styles.fileInfo}>
-                      Expires: {formatDate(upload.expires_at_utc)}
-                    </ThemedText>
+                    style={styles.fileNameRow}
+                  >
+                    <Ionicons name="document-outline" size={24} color={primaryColor} />
+                    <ThemedText style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">{upload.file_name}</ThemedText>
+                    <MaterialIcons name="open-in-new" size={18} color={iconColor} />
                   </Pressable>
-                  <ThemedView style={styles.buttonRow}>
+
+                  <View style={styles.fileInfoContainer}>
+                    <View style={styles.infoRow}>
+                      <Ionicons name="server-outline" size={16} color={subtleTextColor} />
+                      <ThemedText style={[styles.fileInfo, { color: subtleTextColor }]}>
+                        {formatFileSize(upload.file_size)}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Ionicons name="timer-outline" size={16} color={subtleTextColor} />
+                      <ThemedText style={[styles.fileInfo, { color: subtleTextColor }]}>
+                        {formatDate(upload.expires_at_utc)}
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  <View style={[styles.buttonRow, { borderTopColor: separatorColor }]}>
                     <Pressable
                       style={({ pressed }) => [
                         styles.button,
                         styles.copyButton,
-                        { opacity: pressed ? 0.7 : 1 }
+                        { opacity: pressed ? 0.8 : 1 }
                       ]}
                       onPress={() => handleCopy(upload.file_name)}
                     >
+                      <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
                       <ThemedText style={styles.buttonText}>Copy URL</ThemedText>
                     </Pressable>
                     {settings.deleteToken !== '' && (
                       <Pressable
                         style={({ pressed }) => [
                           styles.button,
-                          styles.deleteButton,
-                          { opacity: pressed ? 0.7 : 1 }
+                          { backgroundColor: destructiveColor, opacity: pressed ? 0.8 : 1 }
                         ]}
                         onPress={() => {
                           Alert.alert(
@@ -280,10 +281,11 @@ export default function ListScreen() {
                           );
                         }}
                       >
+                        <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
                         <ThemedText style={styles.buttonText}>Delete</ThemedText>
                       </Pressable>
                     )}
-                  </ThemedView>
+                  </View>
                 </ThemedView>
               ))
             }
@@ -295,88 +297,104 @@ export default function ListScreen() {
 }
 
 const styles = StyleSheet.create({
-  fileNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  sortControls: {
-    marginBottom: 20,
-  },
-  sortLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  sortButtonsContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  sortButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
-  },
-  sortButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  sortButtonText: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  sortButtonTextActive: {
-    color: '#FFFFFF',
-  },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: Constants.statusBarHeight,
   },
   loader: {
     marginTop: 40,
   },
   emptyText: {
     textAlign: 'center',
-    marginTop: 40,
-    fontSize: 16,
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
   },
-  uploadItem: {
+  card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  uploadDetails: {
-    marginBottom: 12,
+  sortButtonsContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  sortButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  sortButtonActive: {
+    backgroundColor: '#A7C83F',
+    borderColor: '#A7C83F',
+  },
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sortButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  fileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   fileName: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+    flex: 1,
+  },
+  fileInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   fileInfo: {
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 2,
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
+    paddingTop: 12,
+    marginTop: 4,
+    borderTopWidth: 1,
   },
   button: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
   },
   copyButton: {
-    backgroundColor: '#007AFF',
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#A7C83F',
   },
   buttonText: {
     color: '#FFFFFF',

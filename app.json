@@ -79,14 +79,21 @@
       "expo-image-picker",
       "expo-document-picker",
       "expo-notifications",
-      "expo-share-intent",
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "text/*", "image/*", "video/*", "audio/*", "*/*"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#232323",
+          "backgroundColor": "#DADADA",
           "image": "./assets/images/splash.png",
           "dark": {
-            "backgroundColor": "#DADADA",
+            "backgroundColor": "#232323",
             "image": "./assets/images/splash.png"
           },
           "imageWidth": 200
