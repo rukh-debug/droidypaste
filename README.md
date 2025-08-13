@@ -1,6 +1,6 @@
 # DroidyPaste
 
-![splash](/src/assets/images/splash.png)
+![splash](/assets/images/splash.png)
 
 A modern Android application for text sharing, file sharing and URL shortening service based on [rustypaste](https://github.com/orhun/rustypaste). Built with React Native and Expo.
 
@@ -22,38 +22,6 @@ emulator @default
 npm run android
 ```
 
-## Configuration
-
-1. Open the app settings
-2. Enter your RustyPaste server URL
-3. Enter your authentication token and delete token if applicable
-4. Save the settings
-
-## Usage
-
-### Text Upload
-1. Enter text in the text area
-2. Choose between regular upload or one-shot
-3. Tap the upload button
-4. The result URL will be copied to clipboard and shown in a notification
-
-### File Upload
-1. Tap "Upload File" or "Upload Image"
-2. Select a file from your device
-3. Optionally set an expiry time
-4. The file will be uploaded and the URL copied to clipboard
-
-### URL Operations
-1. Enter a URL in the input field
-2. Choose between:
-   - Shorten URL: Creates a short link
-   - Upload Remote: Downloads and hosts the remote file
-
-### Share to droidypaste
-1. Share files, text or url to droidypaste
-2. Files and text are uploaded and urls are shortened
-3. The URL copied to clipboard
-
 ### Building for Production
 
 1. Configure app.json with your production settings
@@ -64,7 +32,7 @@ npm run android
    chmod +x gradlew
    ./gradlew assembleRelease
 ```
-3. Release file location: `src/android/app/build/outputs/apk/release/app-release.apk`
+3. Release file location: `android/app/build/outputs/apk/release/app-release.apk`
 
 ## Contributing
 
