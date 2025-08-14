@@ -5,7 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs?rev=55d15ad12a74eb7d4646254e13638ad0c4128776";
     #nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable&rev=55d15ad12a74eb7d4646254e13638ad0c4128776";
 
-    android.url = "github:tadfisher/android-nixpkgs?rev=a21442ddcdf359be82220a6e82eff7432d9a4190";
+    android.url = "github:tadfisher/android-nixpkgs";
     #android.url = "github:tadfisher/android-nixpkgs/stable?rev=a21442ddcdf359be82220a6e82eff7432d9a4190";
     android.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -22,6 +22,8 @@
         sdkPkgs.platforms-android-35
         sdkPkgs.emulator
         sdkPkgs.system-images-android-35-google-apis-x86-64
+        sdkPkgs.system-images-android-36-google-apis-x86-64
+
         sdkPkgs.ndk-26-1-10909125
       ]);
 
@@ -41,6 +43,11 @@
           pkgs.aapt
           pkgs.nodejs_22
           self.packages.x86_64-linux.android-sdk
+          pkgs.scrcpy
+          pkgs.libGL
+          pkgs.libGLU
+          pkgs.mesa
+          # pkgs.libEGL
         ];
       });
 

@@ -81,16 +81,19 @@ export default function UploadScreen() {
 
   const handleUpload = useCallback(async (type: UploadType) => {
     if (isUploading) return;
+    
     setIsUploading(true);
 
     try {
-      await requestNotificationsPermission();
+      // Request notifications permission first (but don't block on it)
+      requestNotificationsPermission().catch(console.warn);
+
       const options: ShareOptions = {
         expiry: tempExpiry.trim() || undefined,
         oneshot: tempIsOneShot || undefined,
       };
 
-      let resultUrl: string | undefined;
+      let resultUrl: string | null = null;
 
       switch (type) {
         case 'text':
@@ -98,21 +101,23 @@ export default function UploadScreen() {
             Alert.alert('Error', 'Please enter some text to upload.');
             return;
           }
-          resultUrl = await uploadText(text.trim(), settings.serverUrl, settings.authToken, options) as string;
+          resultUrl = await uploadText(text.trim(), settings.serverUrl, settings.authToken, options);
           setText('');
           break;
         case 'file':
-          resultUrl = await pickAndUploadFile(settings.serverUrl, settings.authToken, options) as string;
+          resultUrl = await pickAndUploadFile(settings.serverUrl, settings.authToken, options);
+          // If user cancelled, resultUrl will be null - don't show error
           break;
         case 'image':
-          resultUrl = await pickAndUploadImage(settings.serverUrl, settings.authToken, options) as string;
+          resultUrl = await pickAndUploadImage(settings.serverUrl, settings.authToken, options);
+          // If user cancelled, resultUrl will be null - don't show error
           break;
         case 'url':
           if (!url.trim()) {
             Alert.alert('Error', 'Please enter a URL to shorten.');
             return;
           }
-          resultUrl = await shortenUrl(url.trim(), settings.serverUrl, settings.authToken, options) as string;
+          resultUrl = await shortenUrl(url.trim(), settings.serverUrl, settings.authToken, options);
           setUrl('');
           break;
         case 'remote':
@@ -120,14 +125,20 @@ export default function UploadScreen() {
             Alert.alert('Error', 'Please enter a remote URL to upload.');
             return;
           }
-          resultUrl = await uploadFromRemoteUrl(url.trim(), settings.serverUrl, settings.authToken, options) as string;
+          resultUrl = await uploadFromRemoteUrl(url.trim(), settings.serverUrl, settings.authToken, options);
           setUrl('');
           break;
+      }
+
+      // resultUrl will be null if user cancelled file/image picker
+      if (resultUrl) {
+        console.log('Upload successful:', resultUrl);
       }
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('Upload error:', message);
+      Alert.alert('Upload Error', message);
     } finally {
       setIsUploading(false);
     }
@@ -253,12 +264,24 @@ export default function UploadScreen() {
             editable={!isUploading}
           />
           <Pressable
-            style={({ pressed }) => [styles.button, { backgroundColor: primaryColor, opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+            style={({ pressed }) => [
+              styles.button, 
+              { 
+                backgroundColor: primaryColor, 
+                opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 
+              }
+            ]}
             onPress={() => handleUpload('text')}
             disabled={isUploading}
           >
-            <Ionicons name="cloud-upload-outline" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.buttonText}>Upload Text</ThemedText>
+            <Ionicons 
+              name={isUploading ? "hourglass-outline" : "cloud-upload-outline"} 
+              size={20} 
+              color="#FFFFFF" 
+            />
+            <ThemedText style={styles.buttonText}>
+              {isUploading ? 'Uploading...' : 'Upload Text'}
+            </ThemedText>
           </Pressable>
         </ThemedView>
 
@@ -267,20 +290,40 @@ export default function UploadScreen() {
           {renderSectionHeader('Upload File', 'document-attach-outline')}
           <ThemedView style={styles.buttonRow}>
             <Pressable
-              style={({ pressed }) => [styles.button, styles.secondaryButton, { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [
+                styles.button, 
+                styles.secondaryButton, 
+                { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }
+              ]}
               onPress={() => handleUpload('file')}
               disabled={isUploading}
             >
-              <Ionicons name="document-outline" size={20} color={primaryColor} />
-              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Choose File</ThemedText>
+              <Ionicons 
+                name={isUploading ? "hourglass-outline" : "document-outline"} 
+                size={20} 
+                color={primaryColor} 
+              />
+              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>
+                {isUploading ? 'Loading...' : 'Choose File'}
+              </ThemedText>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.button, styles.secondaryButton, { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [
+                styles.button, 
+                styles.secondaryButton, 
+                { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }
+              ]}
               onPress={() => handleUpload('image')}
               disabled={isUploading}
             >
-              <Ionicons name="image-outline" size={20} color={primaryColor} />
-              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Choose Image</ThemedText>
+              <Ionicons 
+                name={isUploading ? "hourglass-outline" : "image-outline"} 
+                size={20} 
+                color={primaryColor} 
+              />
+              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>
+                {isUploading ? 'Loading...' : 'Choose Image'}
+              </ThemedText>
             </Pressable>
           </ThemedView>
         </ThemedView>
@@ -300,20 +343,42 @@ export default function UploadScreen() {
           />
           <ThemedView style={styles.buttonRow}>
             <Pressable
-              style={({ pressed }) => [styles.button, styles.secondaryButton, { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [
+                styles.button, 
+                styles.secondaryButton, 
+                { opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }
+              ]}
               onPress={() => handleUpload('url')}
               disabled={isUploading}
             >
-              <Ionicons name="cut-outline" size={20} color={primaryColor} />
-              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>Shorten</ThemedText>
+              <Ionicons 
+                name={isUploading ? "hourglass-outline" : "cut-outline"} 
+                size={20} 
+                color={primaryColor} 
+              />
+              <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>
+                {isUploading ? 'Processing...' : 'Shorten'}
+              </ThemedText>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.button, { backgroundColor: primaryColor, opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [
+                styles.button, 
+                { 
+                  backgroundColor: primaryColor, 
+                  opacity: isUploading ? 0.6 : pressed ? 0.8 : 1 
+                }
+              ]}
               onPress={() => handleUpload('remote')}
               disabled={isUploading}
             >
-              <Ionicons name="cloud-download-outline" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.buttonText}>Upload</ThemedText>
+              <Ionicons 
+                name={isUploading ? "hourglass-outline" : "cloud-download-outline"} 
+                size={20} 
+                color="#FFFFFF" 
+              />
+              <ThemedText style={styles.buttonText}>
+                {isUploading ? 'Uploading...' : 'Upload'}
+              </ThemedText>
             </Pressable>
           </ThemedView>
         </ThemedView>

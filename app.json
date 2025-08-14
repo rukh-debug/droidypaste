@@ -83,7 +83,11 @@
         "expo-share-intent",
         {
           "androidIntentFilters": [
-            "text/*", "image/*", "video/*", "audio/*", "*/*"
+            "text/*",
+            "image/*",
+            "video/*",
+            "audio/*",
+            "*/*"
           ]
         }
       ],
@@ -98,7 +102,8 @@
           },
           "imageWidth": 200
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
